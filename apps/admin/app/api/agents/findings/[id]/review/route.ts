@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { resolveApiBase } from '../../../../../../../lib/api-base';
+import { resolveApiBase } from '../../../../../../lib/api-base';
 
 type RouteContext = {
   params: {
