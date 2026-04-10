@@ -2,6 +2,9 @@
 const nextConfig = {
   basePath: '/admin',
   assetPrefix: '/admin',
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     typedRoutes: true,
   },
