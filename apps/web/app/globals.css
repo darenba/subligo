@@ -1,0 +1,258 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-ink: #0f141e;
+    --brand-paper: #fff8ea;
+    --brand-fog: #f3efe6;
+    --brand-line: rgba(213, 199, 160, 0.72);
+    --brand-accent: #b88312;
+    --brand-yellow: #fcd122;
+    --brand-lime: #99c450;
+    --brand-sky: #58b0db;
+    --brand-plum: #cf5f9f;
+  }
+
+  html {
+    background: var(--brand-fog);
+  }
+
+  body {
+    font-family: "Sora", system-ui, sans-serif;
+    color: var(--brand-ink);
+    background:
+      radial-gradient(circle at top left, rgba(88, 176, 219, 0.06), transparent 24%),
+      radial-gradient(circle at top right, rgba(252, 209, 34, 0.08), transparent 26%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(243, 239, 230, 0.98)),
+      var(--brand-fog);
+  }
+
+  ::selection {
+    background: rgba(252, 209, 34, 0.45);
+    color: var(--brand-ink);
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply relative overflow-hidden rounded-[30px] shadow-ambient backdrop-blur;
+    border: 1px solid var(--brand-line);
+    background-color: rgba(255, 255, 255, 0.88);
+  }
+
+  .soft-card {
+    @apply rounded-[30px] border shadow-sm;
+    border-color: rgba(15, 20, 30, 0.08);
+    background-color: rgba(255, 255, 255, 0.94);
+  }
+
+  .glass-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      rgba(252, 209, 34, 0.1),
+      transparent 38%,
+      rgba(88, 176, 219, 0.05)
+    );
+    pointer-events: none;
+  }
+
+  .pill {
+    @apply inline-flex items-center rounded-full bg-ink px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.28em] text-brand;
+  }
+
+  .brand-button {
+    @apply inline-flex items-center justify-center rounded-[18px] px-5 py-3 text-sm font-semibold transition active:translate-y-px;
+    background-color: var(--brand-lime);
+    color: #0f141e;
+    box-shadow: 0 12px 30px rgba(15, 20, 30, 0.08);
+  }
+
+  .brand-button:hover {
+    background-color: #a9d65e;
+  }
+
+  .brand-button-secondary {
+    @apply inline-flex items-center justify-center rounded-[18px] px-5 py-3 text-sm font-semibold transition;
+    border: 1px solid rgba(15, 20, 30, 0.18);
+    background-color: rgba(255, 255, 255, 0.95);
+    color: #0f141e;
+    box-shadow: 0 12px 30px rgba(15, 20, 30, 0.04);
+  }
+
+  .brand-button-secondary:hover {
+    border-color: rgba(15, 20, 30, 0.32);
+    color: #0f141e;
+  }
+
+  .brand-kicker {
+    @apply inline-flex items-center rounded-full px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-accent;
+    border: 1px solid rgba(252, 209, 34, 0.6);
+    background-color: rgba(252, 209, 34, 0.15);
+  }
+
+  .brand-chip {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600;
+    border: 1px solid rgba(213, 199, 160, 0.8);
+    background-color: rgba(255, 248, 234, 0.8);
+  }
+
+  .signal-card {
+    @apply relative overflow-hidden rounded-[26px] border p-5;
+    border-color: rgba(213, 199, 160, 0.72);
+    background:
+      linear-gradient(140deg, rgba(255, 255, 255, 0.95), rgba(255, 248, 234, 0.88)),
+      rgba(255, 255, 255, 0.88);
+  }
+
+  .signal-card::before {
+    content: "";
+    position: absolute;
+    inset-x: 0;
+    top: 0;
+    height: 3px;
+    background: linear-gradient(90deg, rgba(252, 209, 34, 0.8), rgba(88, 176, 219, 0.55), rgba(207, 95, 159, 0.7));
+  }
+
+  .display-title {
+    font-family: "Sora", system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.02;
+  }
+
+  .public-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .nav-link {
+    @apply rounded-[14px] px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-black/[0.03] hover:text-slate-950;
+  }
+
+  .toolbar-button {
+    @apply flex w-full flex-col items-center justify-center gap-2 rounded-[20px] border px-2 py-4 text-center text-[11px] font-semibold tracking-[0.02em] transition;
+    border-color: rgba(255, 255, 255, 0.08);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+      rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.78);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .toolbar-button:hover {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.05)),
+      rgba(255, 255, 255, 0.08);
+    color: white;
+  }
+
+  .toolbar-button-active {
+    border-color: rgba(252, 209, 34, 0.75);
+    background:
+      linear-gradient(180deg, rgba(252, 209, 34, 0.22), rgba(252, 209, 34, 0.08)),
+      rgba(252, 209, 34, 0.12);
+    color: white;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .surface-button {
+    @apply rounded-[28px] border px-4 py-4 text-left transition;
+    border-color: rgba(215, 188, 126, 0.42);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 248, 242, 0.96)),
+      rgba(255, 255, 255, 0.95);
+    box-shadow:
+      0 14px 32px rgba(15, 20, 30, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.96);
+  }
+
+  .surface-button:hover {
+    border-color: rgba(184, 131, 18, 0.56);
+    transform: translateY(-1px);
+    box-shadow:
+      0 18px 38px rgba(15, 20, 30, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.96);
+  }
+
+  .surface-button-active {
+    border-color: rgba(184, 131, 18, 0.9);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(255, 251, 242, 0.98)),
+      rgba(255, 255, 255, 0.98);
+    box-shadow:
+      0 20px 42px rgba(15, 20, 30, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+
+  .surface-thumbnail {
+    border: 1px solid rgba(216, 198, 160, 0.78);
+    background:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.96), rgba(246, 243, 237, 0.96)),
+      rgba(255, 255, 255, 0.96);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      0 10px 22px rgba(15, 20, 30, 0.08);
+  }
+
+  .surface-button-active .surface-thumbnail {
+    border-color: rgba(184, 131, 18, 0.36);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 1),
+      0 14px 28px rgba(15, 20, 30, 0.1);
+  }
+
+  .sticky-action-bar {
+    @apply rounded-[28px] border shadow-ambient backdrop-blur;
+    border-color: rgba(15, 20, 30, 0.08);
+    background-color: rgba(255, 255, 255, 0.92);
+  }
+
+  .feature-grid {
+    display: grid;
+    gap: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .feature-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+}
+
+@layer utilities {
+  .border-slate-200 {
+    border-color: var(--brand-line) !important;
+  }
+
+  .border-slate-300 {
+    border-color: rgba(184, 131, 18, 0.2) !important;
+  }
+
+  .bg-slate-50 {
+    background-color: rgba(255, 248, 234, 0.78) !important;
+  }
+
+  .bg-slate-950 {
+    background-color: var(--brand-ink) !important;
+  }
+
+  .text-slate-950 {
+    color: var(--brand-ink) !important;
+  }
+
+  .text-slate-700 {
+    color: #5f5648 !important;
+  }
+
+  .text-slate-600 {
+    color: #6f6557 !important;
+  }
+
+  .text-slate-500 {
+    color: #8b7f6f !important;
+  }
+}

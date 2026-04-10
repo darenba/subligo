@@ -1,0 +1,16 @@
+FROM node:20-alpine AS base
+WORKDIR /app
+
+COPY package.json tsconfig.base.json turbo.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY packages/database/package.json packages/database/package.json
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/ai-agents/package.json packages/ai-agents/package.json
+
+RUN npm install
+
+COPY . .
+
+RUN npm --workspace @printos/api run build
+
+CMD ["npm", "--workspace", "@printos/api", "run", "start:prod"]

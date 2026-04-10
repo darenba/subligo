@@ -1,0 +1,38 @@
+{
+  "name": "printos-ai",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.6.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.18.0"
+  },
+  "scripts": {
+    "postinstall": "node ./infra/scripts/postinstall.mjs",
+    "up": "powershell -ExecutionPolicy Bypass -File ./infra/scripts/launch-all.ps1 -Seed",
+    "up:window": "powershell -ExecutionPolicy Bypass -File ./infra/scripts/launch-all.ps1 -Seed -NewWindow",
+    "dev": "node ./infra/scripts/dev.mjs",
+    "dev:restart": "powershell -ExecutionPolicy Bypass -File ./infra/scripts/restart-dev.ps1",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:admin": "npm --prefix apps/admin run dev",
+    "dev:api": "npm --prefix apps/api run dev",
+    "build": "node ./infra/scripts/run-workspaces.mjs build packages/shared packages/ui packages/database packages/ai-agents apps/api apps/web apps/admin",
+    "lint": "node ./infra/scripts/run-workspaces.mjs lint packages/shared packages/ui packages/database packages/ai-agents apps/api apps/web apps/admin",
+    "test": "node ./infra/scripts/run-workspaces.mjs test packages/shared packages/ui packages/database packages/ai-agents apps/api apps/web apps/admin",
+    "typecheck": "node ./infra/scripts/run-workspaces.mjs typecheck packages/shared packages/ui packages/database packages/ai-agents apps/api apps/web apps/admin",
+    "db:generate": "node ./infra/scripts/run-database.mjs generate",
+    "db:migrate": "node ./infra/scripts/run-database.mjs migrate",
+    "db:seed": "node ./infra/scripts/run-database.mjs seed"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "eslint": "^9.22.0",
+    "eslint-config-next": "^14.2.25",
+    "prettier": "^3.5.3",
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2"
+  }
+}

@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-ink: #0f141e;
+    --brand-paper: #fff8ea;
+    --brand-fog: #f3efe6;
+    --brand-line: rgba(213, 199, 160, 0.72);
+    --brand-accent: #b88312;
+    --brand-yellow: #fcd122;
+    --brand-lime: #99c450;
+    --brand-sky: #58b0db;
+  }
+
+  html {
+    background: var(--brand-fog);
+  }
+
+  body {
+    font-family: "Sora", system-ui, sans-serif;
+    color: var(--brand-ink);
+    background:
+      radial-gradient(circle at top right, rgba(252, 209, 34, 0.14), transparent 24%),
+      radial-gradient(circle at top left, rgba(88, 176, 219, 0.14), transparent 22%),
+      linear-gradient(180deg, rgba(255, 248, 234, 0.94), rgba(243, 239, 230, 0.98)),
+      var(--brand-fog);
+  }
+
+  ::selection {
+    background: rgba(252, 209, 34, 0.45);
+    color: var(--brand-ink);
+  }
+}
+
+@layer components {
+  .admin-card {
+    @apply relative overflow-hidden rounded-[30px] p-6 shadow-ambient backdrop-blur;
+    border: 1px solid var(--brand-line);
+    background-color: rgba(255, 255, 255, 0.9);
+  }
+
+  .admin-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      140deg,
+      rgba(252, 209, 34, 0.08),
+      transparent 38%,
+      rgba(88, 176, 219, 0.05)
+    );
+    pointer-events: none;
+  }
+
+  .brand-nav-link {
+    @apply block rounded-2xl px-4 py-3 text-sm font-medium transition hover:text-white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .brand-nav-link-active {
+    border-color: rgba(252, 209, 34, 0.35);
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(252, 209, 34, 0.1);
+  }
+
+  .brand-nav-link:hover {
+    border-color: rgba(252, 209, 34, 0.3);
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .brand-kicker {
+    @apply inline-flex items-center rounded-full px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-accent;
+    border: 1px solid rgba(252, 209, 34, 0.6);
+    background-color: rgba(252, 209, 34, 0.15);
+  }
+
+  .brand-chip {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-600;
+    border: 1px solid rgba(213, 199, 160, 0.8);
+    background-color: rgba(255, 248, 234, 0.8);
+  }
+}
+
+@layer utilities {
+  .border-slate-200 {
+    border-color: var(--brand-line) !important;
+  }
+
+  .border-slate-300 {
+    border-color: rgba(184, 131, 18, 0.2) !important;
+  }
+
+  .bg-slate-50 {
+    background-color: rgba(255, 248, 234, 0.78) !important;
+  }
+
+  .bg-slate-950 {
+    background-color: var(--brand-ink) !important;
+  }
+
+  .text-slate-950 {
+    color: var(--brand-ink) !important;
+  }
+
+  .text-slate-700 {
+    color: #5f5648 !important;
+  }
+
+  .text-slate-600 {
+    color: #6f6557 !important;
+  }
+
+  .text-slate-500 {
+    color: #8b7f6f !important;
+  }
+}

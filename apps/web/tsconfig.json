@@ -1,0 +1,50 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "allowJs": false,
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@printos/shared": [
+        "../../packages/shared/dist/index.d.ts"
+      ],
+      "@printos/shared/*": [
+        "../../packages/shared/dist/*"
+      ],
+      "@printos/ui": [
+        "../../packages/ui/src/index.ts"
+      ],
+      "@printos/ui/*": [
+        "../../packages/ui/src/*"
+      ],
+      "@printos/database": [
+        "../../packages/database/src/index.ts"
+      ],
+      "@printos/database/*": [
+        "../../packages/database/*"
+      ],
+      "@printos/ai-agents": [
+        "../../packages/ai-agents/src/index.ts"
+      ],
+      "@printos/ai-agents/*": [
+        "../../packages/ai-agents/src/*"
+      ]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "noEmit": true,
+    "isolatedModules": true
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
