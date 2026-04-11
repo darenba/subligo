@@ -102,7 +102,7 @@ export function resolveDefaultSize(product: CatalogProduct, selectedColor?: stri
   );
 }
 
-export function resolveColorSwatch(color?: string) {
+export function resolveColorSwatch(color?: string | null) {
   if (!color) return '#f8fafc';
 
   const normalized = color.toLowerCase().replace(/\s+/g, '');
