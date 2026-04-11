@@ -618,6 +618,8 @@ export function ProductPersonalizer({ product }: { product: CatalogProduct }) {
         heightMeters,
         quantity,
         pricePerSquareMeter: product.pricePerSquareMeter ?? 0,
+        finishingCost: 0,
+        installationCost: 0,
       });
     }
 
