@@ -599,7 +599,7 @@ export function ProductPersonalizer({ product }: { product: CatalogProduct }) {
       return;
     }
 
-    setSelectedSize(sizeOptions[0]);
+    setSelectedSize(sizeOptions[0] ?? null);
   }, [selectedColor, selectedSize, sizeOptions]);
 
   const designedSurfaces = useMemo(
