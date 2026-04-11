@@ -1,13 +1,12 @@
 'use client';
 
-import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { BrandIcon, type BrandIconName } from '@printos/ui';
 
 type NavItem = {
-  href: Route;
+  href: string;
   label: string;
   icon: BrandIconName;
 };

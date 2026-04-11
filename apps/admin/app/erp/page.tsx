@@ -1,4 +1,3 @@
-import type { Route } from 'next';
 import Link from 'next/link';
 import { MetricCard, PageShell, SectionHeading } from '@printos/ui';
 
@@ -26,7 +25,7 @@ const ERP_LINKS = [
   { href: '/contabilidad', label: 'Contabilidad', hint: 'Cobros, conciliacion y control' },
   { href: '/facturacion', label: 'Facturacion', hint: 'Emision y envio documental' },
   { href: '/agentes', label: 'Agentes IA', hint: 'Bandeja de hallazgos y aprobacion' },
-] as const satisfies ReadonlyArray<{ href: Route; label: string; hint: string }>;
+] as const;
 
 export default async function ErpPage() {
   const [dashboard, finance, accounting, billing, productionQueue, reviewQueue, conversations] =
