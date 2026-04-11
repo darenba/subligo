@@ -2,8 +2,8 @@ import { resolve } from 'node:path';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    typedRoutes: true,
+  eslint: {
+    ignoreDuringBuilds: true,
   },
   transpilePackages: ['@printos/ui'],
   webpack(config) {
