@@ -93,13 +93,13 @@ export async function requestClientApi<T = Record<string, unknown>>(
   return performRequest<T>(backendUrl, init);
 }
 
-export function extractClientApiError(
-  result: ClientApiResult<{ message?: string }>,
+export function extractClientApiError<T>(
+  result: ClientApiResult<T>,
   fallbackMessage: string,
 ) {
   const payloadMessage =
     result.payload && typeof result.payload === 'object' && 'message' in result.payload
-      ? result.payload.message
+      ? (result.payload as { message?: unknown }).message
       : null;
 
   if (typeof payloadMessage === 'string' && payloadMessage.trim()) {
