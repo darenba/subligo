@@ -77,6 +77,9 @@ export function AgentRunControls() {
     setError(null);
 
     try {
+      const requestBody =
+        'body' in action && action.body ? JSON.stringify(action.body) : undefined;
+
       const result = await requestClientApi<{
         executed?: number;
         failed?: number;
@@ -95,7 +98,7 @@ export function AgentRunControls() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: action.body ? JSON.stringify(action.body) : undefined,
+        body: requestBody,
       });
 
       if (!result.response.ok) {
