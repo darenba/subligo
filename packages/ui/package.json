@@ -11,8 +11,13 @@
     "test": "echo \"UI tests pending\"",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "devDependencies": {
+    "@types/react": "^18.3.20",
+    "@types/react-dom": "^18.3.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
   "peerDependencies": {
     "react": "^18.3.1"
   }
 }
-
