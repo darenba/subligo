@@ -155,7 +155,13 @@ docker volume inspect subligo_printos_postgres_data_v2
 Backup local antes de migrar la base:
 
 ```powershell
-docker exec printos-postgres pg_dump -U printos -d printos_ai > subligo-local-backup.sql
+docker exec printos-postgres pg_dump -U printos -d printos_ai --no-owner --no-privileges > subligo-supabase-import.sql
+```
+
+O usando el script del repo:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\infra\scripts\export-db-for-supabase.ps1
 ```
 
 ### 6. Reproducir build Vercel localmente
@@ -230,6 +236,12 @@ Admin:
 Remove-Item -Recurse -Force .vercel -ErrorAction SilentlyContinue
 vercel link --yes --scope darwins-projects-052af53a --project subligo-admin-app
 vercel --prod
+```
+
+O usando el script del repo para evitar conflictos con el link de `web`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\infra\scripts\deploy-admin-vercel.ps1
 ```
 
 ### 10. GitHub Actions
@@ -335,7 +347,7 @@ Eso permite un despliegue inicial en Railway sin reescribir todavia la capa de a
 
 1. Crear un proyecto nuevo.
 2. Crear un servicio para `apps/api`.
-3. Configurar build desde `infra/docker/Dockerfile.api`.
+3. Usar `railway.json` en la raiz del repo para build por Dockerfile, healthcheck y mount requerido.
 4. Adjuntar un volumen persistente montado en `/app/storage`.
 5. Definir variables:
    - `PORT`
@@ -345,18 +357,24 @@ Eso permite un despliegue inicial en Railway sin reescribir todavia la capa de a
    - `NEXT_PUBLIC_WEB_URL`
    - `NEXT_PUBLIC_ADMIN_URL`
    - `JWT_SECRET`
-   - `STRIPE_SECRET_KEY`
-   - `STRIPE_WEBHOOK_SECRET`
-   - `WHATSAPP_VERIFY_TOKEN`
-   - `WHATSAPP_APP_SECRET`
-   - `WHATSAPP_ACCESS_TOKEN`
-   - `OPENAI_API_KEY`
+   - `STRIPE_SECRET_KEY` si activaras cobros Stripe en esta fase
+   - `STRIPE_WEBHOOK_SECRET` si activaras webhooks Stripe
+   - `WHATSAPP_VERIFY_TOKEN` si activaras el webhook de WhatsApp
+   - `WHATSAPP_APP_SECRET` si activaras integracion Meta/WhatsApp
+   - `WHATSAPP_ACCESS_TOKEN` si activaras integracion Meta/WhatsApp
+   - `OPENAI_API_KEY` si activaras agentes AI en produccion
 6. Validar:
    - `https://TU_API/api/health`
    - `https://TU_API/api/docs`
 7. Actualizar Vercel:
    - `NEXT_PUBLIC_API_URL=https://TU_API/api`
    - `PUBLIC_API_BASE_URL=https://TU_API`
+
+### Importar el dump a Postgres remoto sin instalar `psql`
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\infra\scripts\import-db-to-postgres.ps1 -ConnectionString "postgresql://prisma:TU_PASSWORD@TU_HOST:5432/postgres?sslmode=require"
+```
 
 ### Opcion de base de datos
 
@@ -365,6 +383,7 @@ Eso permite un despliegue inicial en Railway sin reescribir todavia la capa de a
 - Encaja bien con Prisma usando:
   - `DATABASE_URL` para el pooler
   - `DIRECT_URL` para conexiones directas y migraciones
+- El repo incluye `infra/sql/supabase-prisma-role.sql` para crear el usuario `prisma` con permisos adecuados antes de conectar la app.
 
 #### Opcion mas simple: Railway Postgres
 
