@@ -1,12 +1,11 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-
 import {
   AGENT_PROMPTS,
   getAgentPrompt,
   type AgentId,
   type AgentPromptTemplate,
 } from '@printos/ai-agents';
+
+import { readPrivateJsonFile, writePrivateJsonFile } from '../common/object-storage.js';
 
 type PromptVersionRecord = {
   version: string;
@@ -44,15 +43,7 @@ type UpdatePromptInput = {
   note?: string;
 };
 
-const STORE_FILENAME = 'agent-prompts.overrides.json';
-
-function resolveRepoRoot() {
-  return path.resolve(process.cwd(), '..', '..');
-}
-
-function resolveStorePath() {
-  return path.join(resolveRepoRoot(), 'storage', STORE_FILENAME);
-}
+const STORE_FILENAME = 'system/agent-prompts.overrides.json';
 
 function normalizeText(value: string | undefined) {
   if (typeof value !== 'string') {
@@ -99,21 +90,14 @@ function buildEmptyStore(): PromptStoreFile {
 }
 
 async function readStoreFile(): Promise<PromptStoreFile> {
-  try {
-    const raw = await readFile(resolveStorePath(), 'utf8');
-    const parsed = JSON.parse(raw) as Partial<PromptStoreFile>;
-    return {
-      prompts: parsed.prompts ?? {},
-    };
-  } catch {
-    return buildEmptyStore();
-  }
+  const parsed = await readPrivateJsonFile<Partial<PromptStoreFile>>(STORE_FILENAME);
+  return {
+    prompts: parsed?.prompts ?? {},
+  };
 }
 
 async function writeStoreFile(store: PromptStoreFile) {
-  const storePath = resolveStorePath();
-  await mkdir(path.dirname(storePath), { recursive: true });
-  await writeFile(storePath, JSON.stringify(store, null, 2), 'utf8');
+  await writePrivateJsonFile(STORE_FILENAME, store);
 }
 
 function resolvePrompt(

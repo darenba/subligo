@@ -20,3 +20,8 @@ apps/*/dist
 packages/*/dist
 packages/database/generated
 packages/database/prisma/dev.db
+
+.vercel
+*.tsbuildinfo
+subligo-local-backup.sql
+subligo-supabase-import.sql

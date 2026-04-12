@@ -7,19 +7,15 @@
   - `apps/admin`: Next.js 14 interno
   - `apps/api`: NestJS 11 con Prisma
   - `packages/database`, `packages/shared`, `packages/ui`, `packages/ai-agents`
-- `web` y `admin` si son candidatos naturales para Vercel.
-- `api` no debe desplegarse en Vercel en su estado actual porque usa filesystem persistente:
-  - `apps/api/src/main.ts` sirve `storage/`
-  - `apps/api/src/design/design.service.ts` escribe uploads en `storage/uploads`
-  - `apps/api/src/orders/artwork-renderer.ts` escribe artes en `storage/artworks`
-  - `apps/api/src/agents/agent-prompt-store.ts` persiste overrides en `storage/`
+- `web`, `admin` y `api` pueden vivir en Vercel.
+- La condicion para que `api` funcione bien en Vercel es sacar las escrituras de `storage/` a Supabase Storage.
 - Arquitectura recomendada:
   - `apps/web` en Vercel
   - `apps/admin` en Vercel
-  - `apps/api` en un host Node persistente
+  - `apps/api` en Vercel
   - Postgres en Supabase
-  - Storage en S3/R2/MinIO externo
-  - Redis externo si se usa en produccion
+  - Supabase Storage para uploads, artes y overrides
+  - Redis externo solo si una segunda fase realmente lo necesita
 
 ## Estado actual
 
@@ -28,6 +24,11 @@
 - Web desplegada correctamente:
   - `https://subligo-web-app.vercel.app`
 - La API productiva aun no existe; por eso `web` y `admin` pueden renderizar, pero no tienen datos reales en nube.
+- La API ya esta preparada para usar Supabase Storage y dejar de depender de `storage/` local cuando se definan:
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `SUPABASE_PUBLIC_BUCKET`
+  - `SUPABASE_PRIVATE_BUCKET`
 - La base de datos real del sistema hoy sigue local en Docker:
   - contenedor: `printos-postgres`
   - base: `printos_ai`
@@ -182,6 +183,14 @@ vercel link --yes --scope darwins-projects-052af53a --project subligo-admin-app
 vercel build
 ```
 
+API:
+
+```powershell
+Remove-Item -Recurse -Force .vercel -ErrorAction SilentlyContinue
+vercel link --yes --cwd apps/api --scope darwins-projects-052af53a --project subligo-api-app
+vercel build
+```
+
 ### 7. Inspeccionar deployments y logs
 
 Web:
@@ -194,6 +203,12 @@ Admin:
 
 ```powershell
 vercel inspect https://subligo-admin-app.vercel.app --logs
+```
+
+API:
+
+```powershell
+vercel inspect https://subligo-api-app.vercel.app --logs
 ```
 
 Deployment puntual:
@@ -220,6 +235,14 @@ vercel link --yes --scope darwins-projects-052af53a --project subligo-admin-app
 vercel
 ```
 
+API:
+
+```powershell
+Remove-Item -Recurse -Force .vercel -ErrorAction SilentlyContinue
+vercel link --yes --cwd apps/api --scope darwins-projects-052af53a --project subligo-api-app
+vercel
+```
+
 ### 9. Deploy produccion
 
 Web:
@@ -238,7 +261,21 @@ vercel link --yes --scope darwins-projects-052af53a --project subligo-admin-app
 vercel --prod
 ```
 
+API:
+
+```powershell
+Remove-Item -Recurse -Force .vercel -ErrorAction SilentlyContinue
+vercel link --yes --cwd apps/api --scope darwins-projects-052af53a --project subligo-api-app
+powershell -ExecutionPolicy Bypass -File .\infra\scripts\deploy-api-vercel.ps1
+```
+
 O usando el script del repo para evitar conflictos con el link de `web`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\infra\scripts\deploy-api-vercel.ps1
+```
+
+Admin:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\infra\scripts\deploy-admin-vercel.ps1
@@ -298,13 +335,16 @@ PUBLIC_API_BASE_URL=https://TU_API_PUBLICA
 NEXT_PUBLIC_ADMIN_URL=https://www.subligo.hn/admin
 ```
 
-### API fuera de Vercel
+### API en Vercel
 
 ```text
-PORT=8080
 DATABASE_URL=...
 DIRECT_URL=...
-PUBLIC_API_BASE_URL=https://api.subligo.hn
+SUPABASE_URL=https://TU_PROYECTO.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=...
+SUPABASE_PUBLIC_BUCKET=printos-public
+SUPABASE_PRIVATE_BUCKET=printos-private
+PUBLIC_API_BASE_URL=https://subligo-api-app.vercel.app
 NEXT_PUBLIC_WEB_URL=https://www.subligo.hn
 NEXT_PUBLIC_ADMIN_URL=https://www.subligo.hn/admin
 JWT_SECRET=...
@@ -316,43 +356,54 @@ WHATSAPP_ACCESS_TOKEN=...
 OPENAI_API_KEY=...
 ```
 
-## Ruta recomendada para Railway
+## Ruta recomendada para Vercel + Supabase
 
 ### Arquitectura minima viable
 
 - `apps/web` en Vercel
 - `apps/admin` en Vercel
-- `apps/api` en Railway
-- Postgres en Supabase o Railway Postgres
-- volumen persistente en Railway montado en `/app/storage`
+- `apps/api` en Vercel
+- Postgres en Supabase
+- Supabase Storage para `uploads/`, `artworks/` y overrides de prompts
 
-### Por que `/app/storage`
+### Por que ya no dependemos de `storage/` local
 
-- `infra/docker/Dockerfile.api` usa `WORKDIR /app`
-- `apps/api/src/main.ts` sirve `join(process.cwd(), 'storage')`
-- `apps/api/src/design/design.service.ts` guarda uploads en `storage/uploads`
-- `apps/api/src/orders/artwork-renderer.ts` guarda artes en `storage/artworks`
-- `apps/api/src/agents/agent-prompt-store.ts` guarda overrides en `storage/`
+- `apps/api/src/design/design.service.ts` ahora sube assets a Supabase Storage cuando existen `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`
+- `apps/api/src/orders/artwork-renderer.ts` ahora genera PDF/SVG y los sube a Supabase Storage
+- `apps/api/src/agents/agent-prompt-store.ts` ahora guarda overrides en un bucket privado de Supabase Storage
+- `apps/api/src/main.ts` solo sirve `/files` cuando estas variables no existen, para mantener compatibilidad local
 
-Eso permite un despliegue inicial en Railway sin reescribir todavia la capa de archivos, siempre que el servicio tenga un volumen persistente en `/app/storage`.
+Eso permite dos modos validos:
 
-### Ajustes de codigo ya aplicados para Railway
+- desarrollo local con Docker y `storage/`
+- produccion en Vercel sin filesystem persistente
+
+### Ajustes de codigo ya aplicados para Vercel + Supabase
 
 - `apps/api/src/main.ts`
   - ahora respeta `PORT`
   - expone `GET /api/health`
   - permite CORS desde `NEXT_PUBLIC_WEB_URL` y `NEXT_PUBLIC_ADMIN_URL`
+  - deja de montar `/files` cuando usa Supabase Storage
+- `apps/api/src/common/object-storage.ts`
+  - crea buckets en Supabase si faltan
+  - sube archivos publicos
+  - lee y escribe JSON privado
+- `apps/api/vercel.json`
+  - instala el slice correcto del monorepo para Vercel
 
-### Pasos operativos en Railway
+### Pasos operativos en Vercel
 
-1. Crear un proyecto nuevo.
-2. Crear un servicio para `apps/api`.
-3. Usar `railway.json` en la raiz del repo para build por Dockerfile, healthcheck y mount requerido.
-4. Adjuntar un volumen persistente montado en `/app/storage`.
-5. Definir variables:
-   - `PORT`
+1. Crear o linkear un proyecto `subligo-api-app` con root directory `apps/api`.
+2. Ejecutar `infra/sql/supabase-prisma-role.sql` en Supabase.
+3. Importar `subligo-supabase-import.sql` usando el host real de Supabase.
+4. Definir variables:
    - `DATABASE_URL`
    - `DIRECT_URL`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_PUBLIC_BUCKET`
+   - `SUPABASE_PRIVATE_BUCKET`
    - `PUBLIC_API_BASE_URL`
    - `NEXT_PUBLIC_WEB_URL`
    - `NEXT_PUBLIC_ADMIN_URL`
@@ -363,10 +414,10 @@ Eso permite un despliegue inicial en Railway sin reescribir todavia la capa de a
    - `WHATSAPP_APP_SECRET` si activaras integracion Meta/WhatsApp
    - `WHATSAPP_ACCESS_TOKEN` si activaras integracion Meta/WhatsApp
    - `OPENAI_API_KEY` si activaras agentes AI en produccion
-6. Validar:
+5. Validar:
    - `https://TU_API/api/health`
    - `https://TU_API/api/docs`
-7. Actualizar Vercel:
+6. Actualizar Vercel:
    - `NEXT_PUBLIC_API_URL=https://TU_API/api`
    - `PUBLIC_API_BASE_URL=https://TU_API`
 
@@ -385,11 +436,6 @@ powershell -ExecutionPolicy Bypass -File .\infra\scripts\import-db-to-postgres.p
   - `DIRECT_URL` para conexiones directas y migraciones
 - El repo incluye `infra/sql/supabase-prisma-role.sql` para crear el usuario `prisma` con permisos adecuados antes de conectar la app.
 
-#### Opcion mas simple: Railway Postgres
-
-- Menos piezas al principio.
-- Mas facil si prefieres mover API y DB al mismo proveedor.
-
 ## MCPs
 
 ### Ya configurados
@@ -405,10 +451,10 @@ powershell -ExecutionPolicy Bypass -File .\infra\scripts\import-db-to-postgres.p
 ## Pendientes operativos
 
 1. Dar acceso del GitHub App de Vercel al repo `darenba/subligo`.
-2. Desplegar `apps/api` en Railway y publicar `PUBLIC_API_BASE_URL`.
+2. Desplegar `apps/api` en Vercel y publicar `PUBLIC_API_BASE_URL`.
 3. Conectar `web` y `admin` a la API productiva mediante `NEXT_PUBLIC_API_URL`.
 4. Migrar la DB local Docker a una DB publica de produccion.
-5. Reemplazar `storage/` local por object storage real en una segunda fase o mantener volumen Railway como paso intermedio.
+5. Cargar credenciales reales de Supabase para activar Storage remoto.
 
 ## Nota sobre la limitacion del agente
 

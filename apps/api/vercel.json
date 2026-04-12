@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd ../.. && pnpm install --filter @printos/api... --filter @printos/database --filter @printos/shared --filter @printos/ai-agents --no-frozen-lockfile"
+}

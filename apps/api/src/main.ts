@@ -5,6 +5,10 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module.js';
+import {
+  isRemoteObjectStorageEnabled,
+  resolveLocalStorageRoot,
+} from './common/object-storage.js';
 import { PrismaExceptionFilter } from './common/prisma-exception.filter.js';
 
 function resolveCorsOrigins() {
@@ -31,9 +35,11 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.setGlobalPrefix('api');
-  app.useStaticAssets(join(process.cwd(), 'storage'), {
-    prefix: '/files',
-  });
+  if (!isRemoteObjectStorageEnabled()) {
+    app.useStaticAssets(join(resolveLocalStorageRoot()), {
+      prefix: '/files',
+    });
+  }
   app.enableCors({
     origin: resolveCorsOrigins(),
     credentials: true,

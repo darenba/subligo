@@ -1,5 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename } from 'node:path';
+
+import { uploadPublicFile } from '../common/object-storage.js';
 
 type ArtworkTextElement = {
   type: 'text';
@@ -34,8 +35,6 @@ type RenderArtworkParams = {
   orderNumber: string;
   productName: string;
   canvasJson: unknown;
-  storageRoot: string;
-  publicBaseUrl: string;
 };
 
 function escapeXml(value: string) {
@@ -322,8 +321,6 @@ export async function renderArtworkFiles({
   orderNumber,
   productName,
   canvasJson,
-  storageRoot,
-  publicBaseUrl,
 }: RenderArtworkParams) {
   const dpi = 300;
   const surface = normalizeSurface(canvasJson);
@@ -331,23 +328,28 @@ export async function renderArtworkFiles({
   const heightPx = Math.max(1200, Math.round(surface.height * dpi));
   const widthPts = Math.max(144, Number((surface.width * 72).toFixed(2)));
   const heightPts = Math.max(144, Number((surface.height * 72).toFixed(2)));
-  const artworkDir = join(storageRoot, 'artworks');
   const pdfName = `${productionSku}.pdf`;
   const svgName = `${productionSku}-thumb.svg`;
-  const pdfPath = join(artworkDir, pdfName);
-  const svgPath = join(artworkDir, svgName);
-
-  await mkdir(artworkDir, { recursive: true });
 
   const svgPreview = buildSvgPreview(surface, productName, orderNumber, widthPx, heightPx);
   const pdfDocument = buildPdfDocument(surface, productName, orderNumber, widthPts, heightPts);
 
-  await writeFile(svgPath, svgPreview, 'utf8');
-  await writeFile(pdfPath, pdfDocument, 'utf8');
+  const [thumbnailUrl, fileUrl] = await Promise.all([
+    uploadPublicFile({
+      objectPath: `artworks/${svgName}`,
+      body: svgPreview,
+      contentType: 'image/svg+xml',
+    }),
+    uploadPublicFile({
+      objectPath: `artworks/${pdfName}`,
+      body: pdfDocument,
+      contentType: 'application/pdf',
+    }),
+  ]);
 
   return {
-    fileUrl: `${publicBaseUrl}/files/artworks/${pdfName}`,
-    thumbnailUrl: `${publicBaseUrl}/files/artworks/${svgName}`,
+    fileUrl,
+    thumbnailUrl,
     outputFormat: 'PDF',
     widthPx,
     heightPx,

@@ -1,11 +1,11 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { extname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DesignSessionStatus } from '@prisma/client';
 import { designSessionPayloadSchema } from '@printos/shared';
 
 import { AuditService } from '../audit/audit.service.js';
+import { uploadPublicFile } from '../common/object-storage.js';
 import { PrismaService } from '../common/prisma.service.js';
 
 @Injectable()
@@ -109,12 +109,11 @@ export class DesignService {
     const extension = extname(file.originalname ?? '').toLowerCase() || '.bin';
     const assetId = randomUUID();
     const fileName = `${assetId}${extension}`;
-    const uploadDir = join(process.cwd(), 'storage', 'uploads');
-    const publicBaseUrl =
-      process.env.PUBLIC_API_BASE_URL ?? `http://localhost:${process.env.API_PORT ?? 3102}`;
-
-    await mkdir(uploadDir, { recursive: true });
-    await writeFile(join(uploadDir, fileName), file.buffer);
+    const assetUrl = await uploadPublicFile({
+      objectPath: `uploads/${fileName}`,
+      body: file.buffer,
+      contentType: file.mimetype ?? 'application/octet-stream',
+    });
 
     if (actorId) {
       await this.audit.log({
@@ -132,7 +131,7 @@ export class DesignService {
 
     return {
       id: assetId,
-      assetUrl: `${publicBaseUrl}/files/uploads/${fileName}`,
+      assetUrl,
       originalName: file.originalname ?? fileName,
       mimeType: file.mimetype ?? 'application/octet-stream',
       size: file.size ?? file.buffer.length,

@@ -125,10 +125,6 @@ export class OrdersService {
     });
 
     // Generate artwork files for design sessions
-    const storageRoot = `${process.cwd()}/storage`;
-    const publicBaseUrl =
-      process.env['PUBLIC_API_BASE_URL'] ?? `http://localhost:${process.env['API_PORT'] ?? 3102}`;
-
     for (const item of order.items) {
       if (!item.designSessionId) continue;
 
@@ -145,8 +141,6 @@ export class OrdersService {
           orderNumber,
           productName: product.name,
           canvasJson: session.canvasJson,
-          storageRoot,
-          publicBaseUrl,
         });
 
         await this.prisma.artwork.create({
