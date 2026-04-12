@@ -24,8 +24,14 @@
 ## Estado actual
 
 - Admin desplegado correctamente:
-  - `https://subligo-admin-app.vercel.app`
-- Web enlazada en Vercel pero aun con error de typecheck en build.
+  - `https://subligo-admin-app.vercel.app/admin`
+- Web desplegada correctamente:
+  - `https://subligo-web-app.vercel.app`
+- La API productiva aun no existe; por eso `web` y `admin` pueden renderizar, pero no tienen datos reales en nube.
+- La base de datos real del sistema hoy sigue local en Docker:
+  - contenedor: `printos-postgres`
+  - base: `printos_ai`
+  - volumen: `subligo_printos_postgres_data_v2`
 - GitHub push funcionando a:
   - `https://github.com/darenba/subligo.git`
 - Vercel no tiene auto-deploy por GitHub todavia porque la app de Vercel no tiene acceso al repo.
@@ -51,6 +57,7 @@ Tambien se dejo el rewrite opcional de `/admin` hacia `ADMIN_UPSTREAM_URL`.
 ### Riesgos de despliegue
 
 - `apps/api` depende de disco local persistente.
+- El API actual escribe directo a `storage/`; hoy no usa MinIO/S3 como backend runtime.
 - El repo usa Docker para el entorno local completo.
 - `.env.example` declara Postgres, Redis, MinIO, Stripe, WhatsApp y OpenAI.
 - La integracion GitHub -> Vercel falla hoy por permisos del GitHub App de Vercel sobre `darenba/subligo`.
@@ -132,6 +139,23 @@ Typecheck por app:
 pnpm typecheck:web
 pnpm typecheck:admin
 pnpm typecheck:api
+```
+
+### 5.1 Verificar la base de datos local
+
+```powershell
+docker compose up -d postgres
+docker exec printos-postgres psql -U printos -d printos_ai -P pager=off -c "\dt"
+docker exec printos-postgres psql -U printos -d printos_ai -P pager=off -c "select count(*) as users from users;"
+docker exec printos-postgres psql -U printos -d printos_ai -P pager=off -c "select count(*) as products from products;"
+docker exec printos-postgres psql -U printos -d printos_ai -P pager=off -c "select count(*) as orders from orders;"
+docker volume inspect subligo_printos_postgres_data_v2
+```
+
+Backup local antes de migrar la base:
+
+```powershell
+docker exec printos-postgres pg_dump -U printos -d printos_ai > subligo-local-backup.sql
 ```
 
 ### 6. Reproducir build Vercel localmente
@@ -265,16 +289,12 @@ NEXT_PUBLIC_ADMIN_URL=https://www.subligo.hn/admin
 ### API fuera de Vercel
 
 ```text
+PORT=8080
 DATABASE_URL=...
 DIRECT_URL=...
-REDIS_URL=...
 PUBLIC_API_BASE_URL=https://api.subligo.hn
-MINIO_ENDPOINT=...
-MINIO_PORT=...
-MINIO_USE_SSL=true
-MINIO_ACCESS_KEY=...
-MINIO_SECRET_KEY=...
-MINIO_BUCKET=...
+NEXT_PUBLIC_WEB_URL=https://www.subligo.hn
+NEXT_PUBLIC_ADMIN_URL=https://www.subligo.hn/admin
 JWT_SECRET=...
 STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
@@ -283,6 +303,73 @@ WHATSAPP_APP_SECRET=...
 WHATSAPP_ACCESS_TOKEN=...
 OPENAI_API_KEY=...
 ```
+
+## Ruta recomendada para Railway
+
+### Arquitectura minima viable
+
+- `apps/web` en Vercel
+- `apps/admin` en Vercel
+- `apps/api` en Railway
+- Postgres en Supabase o Railway Postgres
+- volumen persistente en Railway montado en `/app/storage`
+
+### Por que `/app/storage`
+
+- `infra/docker/Dockerfile.api` usa `WORKDIR /app`
+- `apps/api/src/main.ts` sirve `join(process.cwd(), 'storage')`
+- `apps/api/src/design/design.service.ts` guarda uploads en `storage/uploads`
+- `apps/api/src/orders/artwork-renderer.ts` guarda artes en `storage/artworks`
+- `apps/api/src/agents/agent-prompt-store.ts` guarda overrides en `storage/`
+
+Eso permite un despliegue inicial en Railway sin reescribir todavia la capa de archivos, siempre que el servicio tenga un volumen persistente en `/app/storage`.
+
+### Ajustes de codigo ya aplicados para Railway
+
+- `apps/api/src/main.ts`
+  - ahora respeta `PORT`
+  - expone `GET /api/health`
+  - permite CORS desde `NEXT_PUBLIC_WEB_URL` y `NEXT_PUBLIC_ADMIN_URL`
+
+### Pasos operativos en Railway
+
+1. Crear un proyecto nuevo.
+2. Crear un servicio para `apps/api`.
+3. Configurar build desde `infra/docker/Dockerfile.api`.
+4. Adjuntar un volumen persistente montado en `/app/storage`.
+5. Definir variables:
+   - `PORT`
+   - `DATABASE_URL`
+   - `DIRECT_URL`
+   - `PUBLIC_API_BASE_URL`
+   - `NEXT_PUBLIC_WEB_URL`
+   - `NEXT_PUBLIC_ADMIN_URL`
+   - `JWT_SECRET`
+   - `STRIPE_SECRET_KEY`
+   - `STRIPE_WEBHOOK_SECRET`
+   - `WHATSAPP_VERIFY_TOKEN`
+   - `WHATSAPP_APP_SECRET`
+   - `WHATSAPP_ACCESS_TOKEN`
+   - `OPENAI_API_KEY`
+6. Validar:
+   - `https://TU_API/api/health`
+   - `https://TU_API/api/docs`
+7. Actualizar Vercel:
+   - `NEXT_PUBLIC_API_URL=https://TU_API/api`
+   - `PUBLIC_API_BASE_URL=https://TU_API`
+
+### Opcion de base de datos
+
+#### Opcion recomendada: Supabase Postgres
+
+- Encaja bien con Prisma usando:
+  - `DATABASE_URL` para el pooler
+  - `DIRECT_URL` para conexiones directas y migraciones
+
+#### Opcion mas simple: Railway Postgres
+
+- Menos piezas al principio.
+- Mas facil si prefieres mover API y DB al mismo proveedor.
 
 ## MCPs
 
@@ -299,9 +386,10 @@ OPENAI_API_KEY=...
 ## Pendientes operativos
 
 1. Dar acceso del GitHub App de Vercel al repo `darenba/subligo`.
-2. Terminar de corregir el build de `apps/web` en Vercel usando el deployment mas reciente.
-3. Sacar `apps/api` a un host Node con disco y servicios persistentes.
-4. Reemplazar `storage/` local por object storage real en produccion.
+2. Desplegar `apps/api` en Railway y publicar `PUBLIC_API_BASE_URL`.
+3. Conectar `web` y `admin` a la API productiva mediante `NEXT_PUBLIC_API_URL`.
+4. Migrar la DB local Docker a una DB publica de produccion.
+5. Reemplazar `storage/` local por object storage real en una segunda fase o mantener volumen Railway como paso intermedio.
 
 ## Nota sobre la limitacion del agente
 

@@ -7,6 +7,26 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
 import { PrismaExceptionFilter } from './common/prisma-exception.filter.js';
 
+function resolveCorsOrigins() {
+  const candidates = [
+    `http://localhost:${process.env['WEB_PORT'] ?? 3100}`,
+    `http://localhost:${process.env['ADMIN_PORT'] ?? 3101}`,
+    'http://localhost:3000',
+    'http://localhost:3001',
+    process.env['NEXT_PUBLIC_WEB_URL'],
+    process.env['NEXT_PUBLIC_ADMIN_URL'],
+  ];
+
+  return Array.from(
+    new Set(
+      candidates
+        .flatMap((value) => value?.split(',') ?? [])
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
@@ -14,17 +34,17 @@ async function bootstrap() {
   app.useStaticAssets(join(process.cwd(), 'storage'), {
     prefix: '/files',
   });
-  const webPort = process.env['WEB_PORT'] ?? 3100;
-  const adminPort = process.env['ADMIN_PORT'] ?? 3101;
   app.enableCors({
-    origin: [
-      `http://localhost:${webPort}`,
-      `http://localhost:${adminPort}`,
-      'http://localhost:3000',
-      'http://localhost:3001',
-      process.env['NEXT_PUBLIC_WEB_URL'] ?? '',
-    ].filter(Boolean),
+    origin: resolveCorsOrigins(),
     credentials: true,
+  });
+
+  app.getHttpAdapter().get('/api/health', (_req: any, res: any) => {
+    res.status(200).json({
+      ok: true,
+      service: 'printos-api',
+      timestamp: new Date().toISOString(),
+    });
   });
 
   app.useGlobalPipes(
@@ -46,10 +66,11 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swagger);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env['API_PORT'] ?? 3102;
+  const port = process.env['PORT'] ?? process.env['API_PORT'] ?? 3102;
+  const publicBaseUrl = process.env['PUBLIC_API_BASE_URL'] ?? `http://localhost:${port}`;
   await app.listen(port);
-  console.log(`[api] PrintOS AI API escuchando en http://localhost:${port}/api`);
-  console.log(`[api] Swagger disponible en http://localhost:${port}/api/docs`);
+  console.log(`[api] PrintOS AI API escuchando en ${publicBaseUrl}/api`);
+  console.log(`[api] Swagger disponible en ${publicBaseUrl}/api/docs`);
 }
 
 void bootstrap().catch((error) => {
