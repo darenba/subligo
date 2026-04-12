@@ -19,7 +19,7 @@ Copy-Item $apiProjectPath $rootProjectPath -Force
 
 try {
   Push-Location $repoRoot
-  vercel --prod
+  vercel --prod --force
   if ($LASTEXITCODE -ne 0) {
     throw "[vercel] Fallo el deploy productivo de la API."
   }
