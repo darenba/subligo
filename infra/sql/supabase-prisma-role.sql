@@ -1,13 +1,16 @@
 -- Ejecutar en el SQL Editor de Supabase antes de conectar Prisma en produccion.
 -- Reemplaza CHANGE_ME_SUPER_STRONG_PASSWORD por una clave real.
 
-create role prisma login password 'CHANGE_ME_SUPER_STRONG_PASSWORD';
+create user "prisma" with password 'CHANGE_ME_SUPER_STRONG_PASSWORD' bypassrls createdb;
 
-grant anon to prisma;
-grant authenticated to prisma;
-grant service_role to prisma;
+grant "prisma" to "postgres";
 
-grant postgres to prisma;
+grant usage on schema public to prisma;
+grant create on schema public to prisma;
+grant all on all tables in schema public to prisma;
+grant all on all routines in schema public to prisma;
+grant all on all sequences in schema public to prisma;
 
-alter role prisma createdb;
-alter role prisma bypassrls;
+alter default privileges for role postgres in schema public grant all on tables to prisma;
+alter default privileges for role postgres in schema public grant all on routines to prisma;
+alter default privileges for role postgres in schema public grant all on sequences to prisma;
