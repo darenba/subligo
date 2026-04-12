@@ -628,6 +628,7 @@ export function ProductPersonalizer({ product }: { product: CatalogProduct }) {
       unitPrice: product.baseUnitPrice ?? 0,
       personalizationMultiplier: product.personalizationMultiplier,
       surfaces: Math.max(designedSurfaces.length, 1),
+      setupFee: 0,
     });
   }, [designedSurfaces.length, heightMeters, product, quantity, widthMeters]);
 
