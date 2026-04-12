@@ -2,5 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "cd ../.. && pnpm install --filter @printos/admin... --filter @printos/database --filter @printos/shared --no-frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm --filter @printos/admin build"
+  "buildCommand": "cd ../.. && pnpm --filter @printos/admin build",
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/admin",
+      "permanent": false
+    }
+  ]
 }
