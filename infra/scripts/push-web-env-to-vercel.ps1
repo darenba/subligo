@@ -51,7 +51,7 @@ $defaults = @{
 }
 
 foreach ($pair in $defaults.GetEnumerator()) {
-  if ([string]::IsNullOrWhiteSpace($envMap[$pair.Key])) {
+  if ([string]::IsNullOrWhiteSpace($envMap[$pair.Key]) -or $envMap[$pair.Key] -match "localhost|127\.0\.0\.1|TU_HOST|TU_PASSWORD|CHANGE_ME") {
     Set-OrAppendEnvValue -FilePath $envFile -Name $pair.Key -Value $pair.Value
     $envMap[$pair.Key] = $pair.Value
   }
@@ -79,7 +79,7 @@ try {
   foreach ($name in $required) {
     $tempFile = Join-Path $tempDir "$name.txt"
     Set-Content -LiteralPath $tempFile -Value $envMap[$name] -NoNewline
-    cmd /c "type `"$tempFile`" | vercel env add $name production --force"
+    cmd /c "type `"$tempFile`" | vercel env add $name production --force --yes --non-interactive"
     if ($LASTEXITCODE -ne 0) {
       throw "[vercel] Fallo al subir $name al proyecto web."
     }

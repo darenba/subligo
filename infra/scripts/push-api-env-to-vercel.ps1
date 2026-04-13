@@ -88,43 +88,63 @@ if ([string]::IsNullOrWhiteSpace($envMap["JWT_SECRET"])) {
 }
 
 $defaults = @{
-  "SUPABASE_PUBLIC_BUCKET" = "printos-public"
-  "SUPABASE_PRIVATE_BUCKET" = "printos-private"
   "PUBLIC_API_BASE_URL" = "https://subligo-api-app.vercel.app"
   "NEXT_PUBLIC_WEB_URL" = "https://subligo-web-app.vercel.app"
   "NEXT_PUBLIC_ADMIN_URL" = "https://subligo-admin-app.vercel.app/admin"
 }
 
 foreach ($pair in $defaults.GetEnumerator()) {
-  if ([string]::IsNullOrWhiteSpace($envMap[$pair.Key])) {
+  if ([string]::IsNullOrWhiteSpace($envMap[$pair.Key]) -or $envMap[$pair.Key] -match "localhost|127\.0\.0\.1|TU_HOST|TU_PASSWORD|CHANGE_ME") {
     Set-OrAppendEnvValue -FilePath $envFile -Name $pair.Key -Value $pair.Value
     $envMap[$pair.Key] = $pair.Value
   }
 }
 
-$required = @(
+$requiredCore = @(
   "DATABASE_URL",
   "DIRECT_URL",
-  "SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "SUPABASE_PUBLIC_BUCKET",
-  "SUPABASE_PRIVATE_BUCKET",
   "PUBLIC_API_BASE_URL",
   "NEXT_PUBLIC_WEB_URL",
   "NEXT_PUBLIC_ADMIN_URL",
   "JWT_SECRET"
 )
 
-foreach ($name in $required) {
+foreach ($name in $requiredCore) {
   $value = $envMap[$name]
   if ([string]::IsNullOrWhiteSpace($value)) {
     throw "[vercel] Falta $name en .env"
   }
 
-  if ($name -in @("DATABASE_URL", "DIRECT_URL", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY") -and $value -match "localhost|127\.0\.0\.1|TU_HOST|TU_PASSWORD|CHANGE_ME") {
+  if ($name -in @("DATABASE_URL", "DIRECT_URL") -and $value -match "localhost|127\.0\.0\.1|TU_HOST|TU_PASSWORD|CHANGE_ME") {
     throw "[vercel] $name sigue apuntando a placeholders o a entorno local."
   }
 }
+
+$optionalStorage = @()
+$hasSupabaseUrl = -not [string]::IsNullOrWhiteSpace($envMap["SUPABASE_URL"]) -and $envMap["SUPABASE_URL"] -notmatch "localhost|127\.0\.0\.1|TU_HOST|TU_PASSWORD|CHANGE_ME"
+$hasServiceRole = -not [string]::IsNullOrWhiteSpace($envMap["SUPABASE_SERVICE_ROLE_KEY"]) -and $envMap["SUPABASE_SERVICE_ROLE_KEY"] -notmatch "localhost|127\.0\.0\.1|TU_HOST|TU_PASSWORD|CHANGE_ME"
+
+if ($hasSupabaseUrl -and $hasServiceRole) {
+  if ([string]::IsNullOrWhiteSpace($envMap["SUPABASE_PUBLIC_BUCKET"])) {
+    Set-OrAppendEnvValue -FilePath $envFile -Name "SUPABASE_PUBLIC_BUCKET" -Value "printos-public"
+    $envMap["SUPABASE_PUBLIC_BUCKET"] = "printos-public"
+  }
+  if ([string]::IsNullOrWhiteSpace($envMap["SUPABASE_PRIVATE_BUCKET"])) {
+    Set-OrAppendEnvValue -FilePath $envFile -Name "SUPABASE_PRIVATE_BUCKET" -Value "printos-private"
+    $envMap["SUPABASE_PRIVATE_BUCKET"] = "printos-private"
+  }
+
+  $optionalStorage = @(
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_PUBLIC_BUCKET",
+    "SUPABASE_PRIVATE_BUCKET"
+  )
+} else {
+  Write-Host "[vercel] SUPABASE_SERVICE_ROLE_KEY no esta disponible. La API se desplegara sin storage remoto."
+}
+
+$varsToPush = $requiredCore + $optionalStorage
 
 Copy-Item $rootProjectPath $backupProjectPath -Force
 Copy-Item $apiProjectPath $rootProjectPath -Force
@@ -135,10 +155,10 @@ New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
 try {
   Push-Location $repoRoot
 
-  foreach ($name in $required) {
+  foreach ($name in $varsToPush) {
     $tempFile = Join-Path $tempDir "$name.txt"
     Set-Content -LiteralPath $tempFile -Value $envMap[$name] -NoNewline
-    cmd /c "type `"$tempFile`" | vercel env add $name production --force"
+    cmd /c "type `"$tempFile`" | vercel env add $name production --force --yes --non-interactive"
     if ($LASTEXITCODE -ne 0) {
       throw "[vercel] Fallo al subir $name a Vercel."
     }
