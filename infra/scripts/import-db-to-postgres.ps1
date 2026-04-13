@@ -27,6 +27,20 @@ function Get-EnvValueFromFile {
   return $match.Substring($Name.Length + 1).Trim()
 }
 
+function Get-PsqlCompatibleConnectionString {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Uri
+  )
+
+  $clean = $Uri -replace '([?&])schema=[^&]*', '$1'
+  $clean = $clean -replace '\?&', '?'
+  $clean = $clean -replace '&&', '&'
+  $clean = $clean -replace '[?&]$', ''
+
+  return $clean
+}
+
 $resolvedDump = Resolve-Path $DumpPath -ErrorAction Stop
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $envFile = Join-Path $repoRoot ".env"
@@ -43,10 +57,12 @@ if ($ConnectionString -match "TU_HOST|TU_PASSWORD|CHANGE_ME|localhost|127\.0\.0\
   throw "[db] DIRECT_URL sigue apuntando a placeholders o a la base local. Actualiza .env con la conexion real de Supabase."
 }
 
+$psqlConnectionString = Get-PsqlCompatibleConnectionString -Uri $ConnectionString
+
 Write-Host "[db] Importando $resolvedDump a la base remota ..."
 
 Get-Content -LiteralPath $resolvedDump |
-  docker run --rm -i -e TARGET_DB_URL="$ConnectionString" postgres:16-alpine sh -lc 'cat >/tmp/import.sql && psql "$TARGET_DB_URL" -v ON_ERROR_STOP=1 -f /tmp/import.sql'
+  docker run --rm -i -e TARGET_DB_URL="$psqlConnectionString" postgres:16-alpine sh -lc 'cat >/tmp/import.sql && psql "$TARGET_DB_URL" -v ON_ERROR_STOP=1 -f /tmp/import.sql'
 
 if ($LASTEXITCODE -ne 0) {
   throw "[db] Fallo la importacion del dump."
