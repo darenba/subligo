@@ -41,9 +41,25 @@ Al final responde solo con un resumen corto de exito o con el primer error real 
 Push-Location $repoRoot
 
 try {
-  & $codexExe exec --skip-git-repo-check --sandbox read-only $prompt
-  if ($LASTEXITCODE -ne 0) {
+  $codexOutput = & $codexExe exec --skip-git-repo-check --sandbox read-only $prompt 2>&1
+  $exitCode = $LASTEXITCODE
+  $outputText = ($codexOutput | ForEach-Object { "$_" }) -join [Environment]::NewLine
+
+  foreach ($line in $codexOutput) {
+    Write-Host $line
+  }
+
+  if ($exitCode -ne 0) {
     throw "[codex] Fallo la aplicacion del SQL via MCP."
+  }
+
+  if (
+    $outputText -match 'user cancelled MCP tool call' -or
+    $outputText -match 'no fue posible aplicar' -or
+    $outputText -match 'no fue posible continuar' -or
+    $outputText -match 'no fue posible'
+  ) {
+    throw "[supabase] El MCP no permitio ejecutar el SQL remoto. Revisa la salida anterior para el primer error real."
   }
 } finally {
   Pop-Location

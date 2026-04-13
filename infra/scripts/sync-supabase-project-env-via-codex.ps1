@@ -41,6 +41,12 @@ function Set-OrAppendEnvValue {
   Set-Content -LiteralPath $FilePath -Value $content
 }
 
+function Test-NonEmptyValue {
+  param([AllowNull()][string]$Value)
+
+  return -not [string]::IsNullOrWhiteSpace($Value)
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $envFile = Join-Path $repoRoot ".env"
 $codexExe = Resolve-CodexExecutable
@@ -94,6 +100,17 @@ try {
   }
 
   $result = Get-Content -LiteralPath $outputPath -Raw | ConvertFrom-Json
+  $missingFields = @()
+
+  if (-not (Test-NonEmptyValue $result.database_url)) { $missingFields += "database_url" }
+  if (-not (Test-NonEmptyValue $result.direct_url)) { $missingFields += "direct_url" }
+  if (-not (Test-NonEmptyValue $result.supabase_url)) { $missingFields += "supabase_url" }
+  if (-not (Test-NonEmptyValue $result.service_role_key)) { $missingFields += "service_role_key" }
+
+  if ($missingFields.Count -gt 0) {
+    $joined = $missingFields -join ", "
+    throw "[supabase] El MCP no expuso estos campos requeridos: $joined. No se actualizo .env."
+  }
 
   Set-OrAppendEnvValue -FilePath $envFile -Name "DATABASE_URL" -Value $result.database_url
   Set-OrAppendEnvValue -FilePath $envFile -Name "DIRECT_URL" -Value $result.direct_url
