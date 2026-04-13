@@ -1,5 +1,18 @@
 param()
 
+function Resolve-VercelExecutable {
+  $cmd = Get-Command vercel.cmd -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+
+  $ps1 = Get-Command vercel -ErrorAction SilentlyContinue
+  if ($ps1) { return $ps1.Source }
+
+  $candidate = Join-Path $HOME "AppData\Roaming\npm\vercel.cmd"
+  if (Test-Path $candidate) { return $candidate }
+
+  return $null
+}
+
 function Get-EnvMapFromFile {
   param(
     [Parameter(Mandatory = $true)]
@@ -60,22 +73,25 @@ function Set-OrAppendEnvValue {
 }
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+$apiDir = Join-Path $repoRoot "apps\api"
 $envFile = Join-Path $repoRoot ".env"
-$rootVercelDir = Join-Path $repoRoot ".vercel"
-$rootProjectPath = Join-Path $rootVercelDir "project.json"
-$backupProjectPath = Join-Path $rootVercelDir "project.web.json"
 $apiProjectPath = Join-Path $repoRoot "apps\api\.vercel\project.json"
+$vercelExe = Resolve-VercelExecutable
 
 if (!(Test-Path $envFile)) {
   throw "[vercel] No existe .env en la raiz del repo."
 }
 
-if (!(Test-Path $rootProjectPath)) {
-  throw "[vercel] No existe .vercel/project.json en la raiz del repo."
-}
-
 if (!(Test-Path $apiProjectPath)) {
   throw "[vercel] No existe apps/api/.vercel/project.json. Ejecuta primero 'vercel link --cwd apps/api --yes --scope darwins-projects-052af53a --project subligo-api-app'."
+}
+
+if (!(Test-Path $apiDir)) {
+  throw "[vercel] No existe el directorio apps/api."
+}
+
+if (-not $vercelExe) {
+  throw "[vercel] No se encontro la CLI de Vercel."
 }
 
 $envMap = Get-EnvMapFromFile -FilePath $envFile
@@ -146,9 +162,6 @@ if ($hasSupabaseUrl -and $hasServiceRole) {
 
 $varsToPush = $requiredCore + $optionalStorage
 
-Copy-Item $rootProjectPath $backupProjectPath -Force
-Copy-Item $apiProjectPath $rootProjectPath -Force
-
 $tempDir = Join-Path $repoRoot ".tmp-vercel-env"
 New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
 
@@ -158,16 +171,13 @@ try {
   foreach ($name in $varsToPush) {
     $tempFile = Join-Path $tempDir "$name.txt"
     Set-Content -LiteralPath $tempFile -Value $envMap[$name] -NoNewline
-    cmd /c "type `"$tempFile`" | vercel env add $name production --force --yes --non-interactive"
+    cmd /c "type `"$tempFile`" | `"$vercelExe`" --cwd `"$apiDir`" env add $name production --force --yes --non-interactive"
     if ($LASTEXITCODE -ne 0) {
       throw "[vercel] Fallo al subir $name a Vercel."
     }
   }
 } finally {
   Pop-Location
-  if (Test-Path $backupProjectPath) {
-    Move-Item $backupProjectPath $rootProjectPath -Force
-  }
   Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 

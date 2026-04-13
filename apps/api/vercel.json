@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "cd ../.. && pnpm install --filter @printos/api... --filter @printos/database --no-frozen-lockfile --ignore-scripts",
+  "framework": "nestjs",
+  "installCommand": "cd ../.. && pnpm install --filter @printos/api... --filter @printos/database --filter @printos/shared --filter @printos/ai-agents --no-frozen-lockfile --ignore-scripts",
   "buildCommand": "cd ../.. && pnpm db:generate && pnpm --filter @printos/shared build && pnpm --filter @printos/ai-agents build && pnpm --filter @printos/api build"
 }

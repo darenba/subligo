@@ -31,7 +31,7 @@ function Get-FirstRegexMatch {
 function Wait-ForApiHealth {
   param(
     [Parameter(Mandatory = $true)][string]$BaseUrl,
-    [int]$Attempts = 12,
+    [int]$Attempts = 30,
     [int]$DelaySeconds = 10
   )
 
@@ -57,31 +57,26 @@ function Wait-ForApiHealth {
 }
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$rootVercelDir = Join-Path $repoRoot ".vercel"
-$rootProjectPath = Join-Path $rootVercelDir "project.json"
-$backupProjectPath = Join-Path $rootVercelDir "project.web.json"
+$apiDir = Join-Path $repoRoot "apps\api"
 $apiProjectPath = Join-Path $repoRoot "apps\api\.vercel\project.json"
 $vercelExe = Resolve-VercelExecutable
 
-if (!(Test-Path $rootProjectPath)) {
-  throw "[vercel] No existe .vercel/project.json en la raiz del repo."
-}
-
 if (!(Test-Path $apiProjectPath)) {
   throw "[vercel] No existe apps/api/.vercel/project.json. Ejecuta primero 'vercel link --cwd apps/api --yes --scope darwins-projects-052af53a --project subligo-api-app'."
+}
+
+if (!(Test-Path $apiDir)) {
+  throw "[vercel] No existe el directorio apps/api."
 }
 
 if (-not $vercelExe) {
   throw "[vercel] No se encontro la CLI de Vercel."
 }
 
-Copy-Item $rootProjectPath $backupProjectPath -Force
-Copy-Item $apiProjectPath $rootProjectPath -Force
-
 try {
   Push-Location $repoRoot
 
-  $deployOutput = & $vercelExe --prod --force --yes --non-interactive 2>&1
+  $deployOutput = & $vercelExe --cwd $apiDir --prod --force --yes --non-interactive 2>&1
   $deployExitCode = $LASTEXITCODE
   $deployLines = @($deployOutput | ForEach-Object { "$_" })
 
@@ -112,7 +107,4 @@ try {
   throw "[vercel] El deploy termino sin error, pero la API no respondio en $productionUrl/api/health"
 } finally {
   Pop-Location
-  if (Test-Path $backupProjectPath) {
-    Move-Item $backupProjectPath $rootProjectPath -Force
-  }
 }
