@@ -31,7 +31,7 @@ function Get-FirstRegexMatch {
 function Wait-ForApiHealth {
   param(
     [Parameter(Mandatory = $true)][string]$BaseUrl,
-    [int]$Attempts = 30,
+    [int]$Attempts = 60,
     [int]$DelaySeconds = 10
   )
 
