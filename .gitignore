@@ -25,3 +25,6 @@ packages/database/prisma/dev.db
 *.tsbuildinfo
 subligo-local-backup.sql
 subligo-supabase-import.sql
+subligo-supabase-data-import.sql
+apps/api/.api-dev.lock
+apps/api/.gitignore

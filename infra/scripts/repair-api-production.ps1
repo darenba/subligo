@@ -24,6 +24,7 @@ try {
   }
 
   Write-Host "[repair] Desplegando API y esperando healthcheck..."
+  Write-Host "[repair] Este primer bootstrap puede tardar varios minutos porque valida build, schema y seed remoto."
   & powershell -ExecutionPolicy Bypass -File $deployScript
   if ($LASTEXITCODE -ne 0) {
     throw "[repair] Fallo el despliegue del API."

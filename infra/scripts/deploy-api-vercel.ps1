@@ -30,23 +30,26 @@ function Get-FirstRegexMatch {
 
 function Wait-ForApiHealth {
   param(
-    [Parameter(Mandatory = $true)][string]$BaseUrl,
-    [int]$Attempts = 60,
+    [Parameter(Mandatory = $true)][string[]]$BaseUrls,
+    [int]$Attempts = 180,
     [int]$DelaySeconds = 10
   )
 
-  $healthUrl = ($BaseUrl.TrimEnd('/') + "/api/health")
-
   for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
-    try {
-      $response = Invoke-RestMethod -Uri $healthUrl -Method Get -TimeoutSec 20
-      if ($response.ok -eq $true) {
-        Write-Host "[vercel] API saludable en $healthUrl"
-        return $true
+    foreach ($baseUrl in $BaseUrls) {
+      $healthUrl = ($baseUrl.TrimEnd('/') + "/api/health")
+
+      try {
+        $response = Invoke-RestMethod -Uri $healthUrl -Method Get -TimeoutSec 20
+        if ($response.ok -eq $true) {
+          Write-Host "[vercel] API saludable en $healthUrl"
+          return $true
+        }
+      } catch {
       }
-    } catch {
-      Write-Host "[vercel] Esperando healthcheck de la API ($attempt/$Attempts)..."
     }
+
+    Write-Host "[vercel] Esperando healthcheck de la API ($attempt/$Attempts)..."
 
     if ($attempt -lt $Attempts) {
       Start-Sleep -Seconds $DelaySeconds
@@ -86,25 +89,31 @@ try {
 
   $inspectUrl = Get-FirstRegexMatch -Lines $deployLines -Pattern 'Inspect:\s+(https://\S+)'
   $productionUrl = Get-FirstRegexMatch -Lines $deployLines -Pattern 'Production:\s+(https://\S+)'
+  $apiProject = Get-Content $apiProjectPath | ConvertFrom-Json
+  $stableAliasUrl = "https://$($apiProject.projectName).vercel.app"
 
   if (-not $productionUrl) {
-    throw "[vercel] La CLI no devolvio una URL de produccion para la API."
+    Write-Host "[vercel] La CLI no devolvio una URL temporal; se intentara validar el alias estable."
   }
 
-  Write-Host "[vercel] URL de produccion detectada: $productionUrl"
+  if ($productionUrl) {
+    Write-Host "[vercel] URL de produccion detectada: $productionUrl"
+  }
+  Write-Host "[vercel] Alias estable esperado: $stableAliasUrl"
   if ($inspectUrl) {
     Write-Host "[vercel] Inspeccion disponible en: $inspectUrl"
   }
 
-  if (Wait-ForApiHealth -BaseUrl $productionUrl) {
+  $healthTargets = @($productionUrl, $stableAliasUrl) | Where-Object { $_ } | Select-Object -Unique
+  if (Wait-ForApiHealth -BaseUrls $healthTargets) {
     return
   }
 
   if ($deployExitCode -ne 0) {
-    throw "[vercel] La CLI reporto error y la API no respondio en /api/health. Revisa el deploy en $inspectUrl"
+    throw "[vercel] La CLI reporto error y la API no respondio en /api/health. Revisa el deploy en $inspectUrl o prueba el alias $stableAliasUrl"
   }
 
-  throw "[vercel] El deploy termino sin error, pero la API no respondio en $productionUrl/api/health"
+  throw "[vercel] El deploy termino sin error, pero la API no respondio en ninguno de estos endpoints: $($healthTargets -join ', ')"
 } finally {
   Pop-Location
 }
