@@ -59,6 +59,55 @@ function Wait-ForApiHealth {
   return $false
 }
 
+function Use-VercelProjectLink {
+  param(
+    [Parameter(Mandatory = $true)][string]$RepoRoot,
+    [Parameter(Mandatory = $true)][string]$LinkedProjectPath,
+    [Parameter(Mandatory = $true)][scriptblock]$Action
+  )
+
+  $rootVercelDir = Join-Path $RepoRoot ".vercel"
+  $rootProjectPath = Join-Path $rootVercelDir "project.json"
+  $rootReadmePath = Join-Path $rootVercelDir "README.txt"
+  $rootProjectBackup = $null
+  $rootReadmeBackup = $null
+
+  if (!(Test-Path $rootVercelDir)) {
+    New-Item -ItemType Directory -Path $rootVercelDir | Out-Null
+  }
+
+  if (Test-Path $rootProjectPath) {
+    $rootProjectBackup = Get-Content $rootProjectPath -Raw
+  }
+
+  if (Test-Path $rootReadmePath) {
+    $rootReadmeBackup = Get-Content $rootReadmePath -Raw
+  }
+
+  Copy-Item -LiteralPath $LinkedProjectPath -Destination $rootProjectPath -Force
+
+  $linkedReadmePath = Join-Path (Split-Path $LinkedProjectPath -Parent) "README.txt"
+  if (Test-Path $linkedReadmePath) {
+    Copy-Item -LiteralPath $linkedReadmePath -Destination $rootReadmePath -Force
+  }
+
+  try {
+    & $Action
+  } finally {
+    if ($null -ne $rootProjectBackup) {
+      Set-Content -LiteralPath $rootProjectPath -Value $rootProjectBackup
+    } elseif (Test-Path $rootProjectPath) {
+      Remove-Item -LiteralPath $rootProjectPath -Force
+    }
+
+    if ($null -ne $rootReadmeBackup) {
+      Set-Content -LiteralPath $rootReadmePath -Value $rootReadmeBackup
+    } elseif (Test-Path $rootReadmePath) {
+      Remove-Item -LiteralPath $rootReadmePath -Force
+    }
+  }
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $apiDir = Join-Path $repoRoot "apps\api"
 $apiProjectPath = Join-Path $repoRoot "apps\api\.vercel\project.json"
@@ -79,9 +128,14 @@ if (-not $vercelExe) {
 try {
   Push-Location $repoRoot
 
-  $deployOutput = & $vercelExe --cwd $apiDir --prod --force --yes --non-interactive 2>&1
-  $deployExitCode = $LASTEXITCODE
-  $deployLines = @($deployOutput | ForEach-Object { "$_" })
+  $deployLines = @()
+  $deployExitCode = 1
+
+  Use-VercelProjectLink -RepoRoot $repoRoot -LinkedProjectPath $apiProjectPath -Action {
+    $script:deployOutput = & $vercelExe --prod --force --yes --non-interactive 2>&1
+    $script:deployExitCode = $LASTEXITCODE
+    $script:deployLines = @($script:deployOutput | ForEach-Object { "$_" })
+  }
 
   foreach ($line in $deployLines) {
     Write-Host $line
