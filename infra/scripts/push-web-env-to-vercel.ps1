@@ -59,6 +59,43 @@ function Set-OrAppendEnvValue {
   Set-Content -LiteralPath $FilePath -Value $content
 }
 
+function Invoke-VercelWithExactStdin {
+  param(
+    [Parameter(Mandatory = $true)][string]$Executable,
+    [Parameter(Mandatory = $true)][string[]]$Arguments,
+    [Parameter(Mandatory = $true)][string]$InputText
+  )
+
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = $Executable
+  foreach ($argument in $Arguments) {
+    [void]$startInfo.ArgumentList.Add($argument)
+  }
+  $startInfo.UseShellExecute = $false
+  $startInfo.RedirectStandardInput = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+  [void]$process.Start()
+  $process.StandardInput.Write($InputText)
+  $process.StandardInput.Close()
+
+  $stdout = $process.StandardOutput.ReadToEnd()
+  $stderr = $process.StandardError.ReadToEnd()
+  $process.WaitForExit()
+
+  if (-not [string]::IsNullOrWhiteSpace($stdout)) {
+    Write-Host $stdout.TrimEnd()
+  }
+  if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+    Write-Host $stderr.TrimEnd()
+  }
+
+  return $process.ExitCode
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $webRoot = Join-Path $repoRoot "apps\web"
 $envFile = Join-Path $repoRoot ".env"
@@ -105,9 +142,6 @@ foreach ($name in $required) {
   }
 }
 
-$tempDir = Join-Path $repoRoot ".tmp-vercel-env"
-New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
-
 try {
   Push-Location $repoRoot
   & $vercelExe link --yes --scope $ProjectScope --project $ProjectName --cwd $webRoot
@@ -116,16 +150,19 @@ try {
   }
 
   foreach ($name in $required) {
-    $tempFile = Join-Path $tempDir "$name.txt"
-    Set-Content -LiteralPath $tempFile -Value $envMap[$name] -NoNewline
-    Get-Content -LiteralPath $tempFile -Raw | & $vercelExe env add $name production --force --yes --non-interactive --scope $ProjectScope --cwd $webRoot
-    if ($LASTEXITCODE -ne 0) {
+    $exitCode = Invoke-VercelWithExactStdin -Executable $vercelExe -Arguments @(
+      "env", "add", $name, "production",
+      "--force", "--yes", "--non-interactive",
+      "--scope", $ProjectScope,
+      "--cwd", $webRoot
+    ) -InputText $envMap[$name]
+
+    if ($exitCode -ne 0) {
       throw "[vercel] Fallo al subir $name al proyecto web $ProjectName."
     }
   }
 } finally {
   Pop-Location
-  Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host "[vercel] Variables del web sincronizadas en produccion para $ProjectName."

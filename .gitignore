@@ -30,3 +30,6 @@ subligo-supabase-data-import.sql
 apps/api/.api-dev.lock
 apps/api/.gitignore
 apps/web/.gitignore
+
+.vercel
+.env*.local

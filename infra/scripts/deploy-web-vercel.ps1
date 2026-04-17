@@ -86,7 +86,8 @@ function Invoke-VercelStep {
 }
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$webConfig = Join-Path $repoRoot "apps\web\vercel.json"
+$webRoot = Join-Path $repoRoot "apps\web"
+$webConfig = Join-Path $webRoot "vercel.json"
 $vercelExe = Resolve-VercelExecutable
 
 if (-not $vercelExe) {
@@ -99,22 +100,21 @@ if (!(Test-Path $webConfig)) {
 
 Push-Location $repoRoot
 try {
-  Invoke-VercelStep -Executable $vercelExe -Label "Enlazando la raiz del repo al proyecto $ProjectName" -Arguments @(
+  Invoke-VercelStep -Executable $vercelExe -Label "Enlazando apps/web al proyecto $ProjectName" -Arguments @(
     "link",
     "--yes",
     "--scope", $ProjectScope,
     "--project", $ProjectName,
-    "--cwd", $repoRoot
+    "--cwd", $webRoot
   ) | Out-Null
 
-  $deployLines = Invoke-VercelStep -Executable $vercelExe -Label "Desplegando el web en $ProjectName desde la raiz del monorepo" -Arguments @(
+  $deployLines = Invoke-VercelStep -Executable $vercelExe -Label "Desplegando el web en $ProjectName desde apps/web" -Arguments @(
     "--prod",
     "--force",
     "--yes",
     "--non-interactive",
     "--scope", $ProjectScope,
-    "--cwd", $repoRoot,
-    "--local-config", $webConfig
+    "--cwd", $webRoot
   )
 
   $inspectUrl = Get-FirstRegexMatch -Lines $deployLines -Pattern 'Inspect:\s+(https://\S+)'
