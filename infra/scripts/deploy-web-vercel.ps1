@@ -62,75 +62,59 @@ function Wait-ForWebReady {
   return $false
 }
 
+function Invoke-VercelStep {
+  param(
+    [Parameter(Mandatory = $true)][string]$Executable,
+    [Parameter(Mandatory = $true)][string]$Label,
+    [Parameter(Mandatory = $true)][string[]]$Arguments
+  )
+
+  Write-Host "[vercel] $Label..."
+  $output = & $Executable @Arguments 2>&1
+  $exitCode = $LASTEXITCODE
+  $lines = @($output | ForEach-Object { "$_" })
+
+  foreach ($line in $lines) {
+    Write-Host $line
+  }
+
+  if ($exitCode -ne 0) {
+    throw "[vercel] Fallo '$Label'."
+  }
+
+  return ,$lines
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$webRoot = Join-Path $repoRoot "apps\web"
-$outputDir = Join-Path $webRoot ".vercel\output"
+$webConfig = Join-Path $repoRoot "apps\web\vercel.json"
 $vercelExe = Resolve-VercelExecutable
 
 if (-not $vercelExe) {
   throw "[vercel] No se encontro la CLI de Vercel."
 }
 
-if (!(Test-Path $webRoot)) {
-  throw "[vercel] No existe la carpeta del web: $webRoot"
-}
-
-function Invoke-VercelStep {
-  param(
-    [Parameter(Mandatory = $true)][string]$Label,
-    [Parameter(Mandatory = $true)][string[]]$Arguments
-  )
-
-  Write-Host "[vercel] $Label..."
-  $output = & $vercelExe @Arguments 2>&1
-  $exitCode = $LASTEXITCODE
-  $lines = @($output | ForEach-Object { "$_" })
-  foreach ($line in $lines) {
-    Write-Host $line
-  }
-  if ($exitCode -ne 0) {
-    throw "[vercel] Fallo '$Label'."
-  }
-  return ,$lines
+if (!(Test-Path $webConfig)) {
+  throw "[vercel] No existe apps/web/vercel.json"
 }
 
 Push-Location $repoRoot
 try {
-  if (Test-Path $outputDir) {
-    Remove-Item -LiteralPath $outputDir -Recurse -Force -ErrorAction SilentlyContinue
-  }
-
-  Invoke-VercelStep -Label "Enlazando apps/web al proyecto $ProjectName" -Arguments @(
+  Invoke-VercelStep -Executable $vercelExe -Label "Enlazando la raiz del repo al proyecto $ProjectName" -Arguments @(
     "link",
     "--yes",
     "--scope", $ProjectScope,
     "--project", $ProjectName,
-    "--cwd", $webRoot
+    "--cwd", $repoRoot
   ) | Out-Null
 
-  Invoke-VercelStep -Label "Descargando configuracion de produccion para $ProjectName" -Arguments @(
-    "pull",
-    "--yes",
-    "--environment=production",
-    "--scope", $ProjectScope,
-    "--cwd", $webRoot
-  ) | Out-Null
-
-  Invoke-VercelStep -Label "Construyendo web localmente para produccion" -Arguments @(
-    "build",
+  $deployLines = Invoke-VercelStep -Executable $vercelExe -Label "Desplegando el web en $ProjectName desde la raiz del monorepo" -Arguments @(
     "--prod",
-    "--scope", $ProjectScope,
-    "--cwd", $webRoot
-  ) | Out-Null
-
-  $deployLines = Invoke-VercelStep -Label "Publicando build precompilado en $ProjectName" -Arguments @(
-    "deploy",
-    "--prebuilt",
-    "--prod",
+    "--force",
     "--yes",
     "--non-interactive",
     "--scope", $ProjectScope,
-    "--cwd", $webRoot
+    "--cwd", $repoRoot,
+    "--local-config", $webConfig
   )
 
   $inspectUrl = Get-FirstRegexMatch -Lines $deployLines -Pattern 'Inspect:\s+(https://\S+)'
@@ -138,6 +122,7 @@ try {
   if (-not $productionUrl) {
     $productionUrl = Get-FirstRegexMatch -Lines $deployLines -Pattern '^(https://\S+)$'
   }
+
   $aliasUrl = "https://$ProjectName.vercel.app"
   $urlsToCheck = @($PrimaryUrl, $aliasUrl, $productionUrl) | Where-Object { $_ } | Select-Object -Unique
 
