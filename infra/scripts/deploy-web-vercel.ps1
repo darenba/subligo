@@ -2,9 +2,13 @@ param(
   [string]$ProjectName = "v0-subligo",
   [string]$ProjectScope = "darwins-projects-052af53a",
   [string]$PrimaryUrl = "https://www.subligo.hn",
+  [string]$SecondaryUrl = "https://subligo.hn",
+  [string]$ExpectedMarker = "Personaliza camisetas, tazas",
   [int]$Attempts = 36,
   [int]$DelaySeconds = 10
 )
+
+$ErrorActionPreference = "Stop"
 
 function Resolve-VercelExecutable {
   $cmd = Get-Command vercel.cmd -ErrorAction SilentlyContinue
@@ -37,6 +41,7 @@ function Get-FirstRegexMatch {
 function Wait-ForWebReady {
   param(
     [Parameter(Mandatory = $true)][string[]]$Urls,
+    [Parameter(Mandatory = $true)][string]$ExpectedMarker,
     [int]$Attempts = 36,
     [int]$DelaySeconds = 10
   )
@@ -45,15 +50,19 @@ function Wait-ForWebReady {
     foreach ($url in $Urls) {
       try {
         $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Get -TimeoutSec 20
-        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 400) {
-          Write-Host "[vercel] Web funcionando en $url"
+        if (
+          $response.StatusCode -ge 200 -and
+          $response.StatusCode -lt 400 -and
+          $response.Content -match [Regex]::Escape($ExpectedMarker)
+        ) {
+          Write-Host "[vercel] Web correcto en $url"
           return $true
         }
       } catch {
       }
     }
 
-    Write-Host "[vercel] Esperando disponibilidad del web ($attempt/$Attempts)..."
+    Write-Host "[vercel] Esperando contenido correcto del web ($attempt/$Attempts)..."
     if ($attempt -lt $Attempts) {
       Start-Sleep -Seconds $DelaySeconds
     }
@@ -100,21 +109,22 @@ if (!(Test-Path $webConfig)) {
 
 Push-Location $repoRoot
 try {
-  Invoke-VercelStep -Executable $vercelExe -Label "Enlazando apps/web al proyecto $ProjectName" -Arguments @(
+  Invoke-VercelStep -Executable $vercelExe -Label "Enlazando la raiz del repo al proyecto $ProjectName" -Arguments @(
     "link",
     "--yes",
     "--scope", $ProjectScope,
     "--project", $ProjectName,
-    "--cwd", $webRoot
+    "--cwd", $repoRoot
   ) | Out-Null
 
-  $deployLines = Invoke-VercelStep -Executable $vercelExe -Label "Desplegando el web en $ProjectName desde apps/web" -Arguments @(
+  $deployLines = Invoke-VercelStep -Executable $vercelExe -Label "Desplegando el web en $ProjectName desde la raiz del monorepo" -Arguments @(
     "--prod",
     "--force",
     "--yes",
     "--non-interactive",
     "--scope", $ProjectScope,
-    "--cwd", $webRoot
+    "--cwd", $repoRoot,
+    "--local-config", $webConfig
   )
 
   $inspectUrl = Get-FirstRegexMatch -Lines $deployLines -Pattern 'Inspect:\s+(https://\S+)'
@@ -123,11 +133,25 @@ try {
     $productionUrl = Get-FirstRegexMatch -Lines $deployLines -Pattern '^(https://\S+)$'
   }
 
+  if (-not [string]::IsNullOrWhiteSpace($productionUrl)) {
+    $deploymentHost = ([Uri]$productionUrl).Host
+    Invoke-VercelStep -Executable $vercelExe -Label "Aliaseando www.subligo.hn al deploy nuevo" -Arguments @(
+      "alias", "set", $deploymentHost, "www.subligo.hn",
+      "--scope", $ProjectScope
+    ) | Out-Null
+
+    Invoke-VercelStep -Executable $vercelExe -Label "Aliaseando subligo.hn al deploy nuevo" -Arguments @(
+      "alias", "set", $deploymentHost, "subligo.hn",
+      "--scope", $ProjectScope
+    ) | Out-Null
+  }
+
   $aliasUrl = "https://$ProjectName.vercel.app"
-  $urlsToCheck = @($PrimaryUrl, $aliasUrl, $productionUrl) | Where-Object { $_ } | Select-Object -Unique
+  $urlsToCheck = @($PrimaryUrl, $SecondaryUrl, $aliasUrl, $productionUrl) | Where-Object { $_ } | Select-Object -Unique
 
   Write-Host "[vercel] Proyecto destino: $ProjectName"
   Write-Host "[vercel] Dominio primario esperado: $PrimaryUrl"
+  Write-Host "[vercel] Dominio secundario esperado: $SecondaryUrl"
   if ($productionUrl) {
     Write-Host "[vercel] URL temporal de produccion: $productionUrl"
   }
@@ -135,11 +159,11 @@ try {
     Write-Host "[vercel] Inspeccion disponible en: $inspectUrl"
   }
 
-  if (Wait-ForWebReady -Urls $urlsToCheck -Attempts $Attempts -DelaySeconds $DelaySeconds) {
+  if (Wait-ForWebReady -Urls $urlsToCheck -ExpectedMarker $ExpectedMarker -Attempts $Attempts -DelaySeconds $DelaySeconds) {
     return
   }
 
-  throw "[vercel] El deploy termino sin error, pero el web no respondio en ninguno de estos endpoints: $($urlsToCheck -join ', ')"
+  throw "[vercel] El deploy termino, pero ninguno de los endpoints sirvio el contenido esperado de SubliGo: $($urlsToCheck -join ', ')"
 } finally {
   Pop-Location
 }
