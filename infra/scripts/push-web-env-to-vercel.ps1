@@ -1,4 +1,24 @@
-param()
+param(
+  [string]$ProjectName = "v0-subligo",
+  [string]$ProjectScope = "darwins-projects-052af53a",
+  [string]$WebUrl = "https://www.subligo.hn",
+  [string]$ApiUrl = "https://subligo-api-app.vercel.app/api",
+  [string]$AdminUrl = "https://subligo-admin-app.vercel.app/admin",
+  [string]$AdminUpstreamUrl = "https://subligo-admin-app.vercel.app"
+)
+
+function Resolve-VercelExecutable {
+  $cmd = Get-Command vercel.cmd -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+
+  $ps1 = Get-Command vercel -ErrorAction SilentlyContinue
+  if ($ps1) { return $ps1.Source }
+
+  $candidate = Join-Path $HOME "AppData\Roaming\npm\vercel.cmd"
+  if (Test-Path $candidate) { return $candidate }
+
+  return $null
+}
 
 function Get-EnvMapFromFile {
   param([Parameter(Mandatory = $true)][string]$FilePath)
@@ -42,16 +62,25 @@ function Set-OrAppendEnvValue {
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $envFile = Join-Path $repoRoot ".env"
 $envMap = Get-EnvMapFromFile -FilePath $envFile
+$vercelExe = Resolve-VercelExecutable
+
+if (-not $vercelExe) {
+  throw "[vercel] No se encontro la CLI de Vercel."
+}
 
 $defaults = @{
-  "NEXT_PUBLIC_API_URL" = "https://subligo-api-app.vercel.app/api"
-  "NEXT_PUBLIC_WEB_URL" = "https://subligo-web-app.vercel.app"
-  "NEXT_PUBLIC_ADMIN_URL" = "https://subligo-admin-app.vercel.app/admin"
-  "ADMIN_UPSTREAM_URL" = "https://subligo-admin-app.vercel.app"
+  "NEXT_PUBLIC_API_URL" = $ApiUrl
+  "NEXT_PUBLIC_WEB_URL" = $WebUrl
+  "NEXT_PUBLIC_ADMIN_URL" = $AdminUrl
+  "ADMIN_UPSTREAM_URL" = $AdminUpstreamUrl
 }
 
 foreach ($pair in $defaults.GetEnumerator()) {
-  if ([string]::IsNullOrWhiteSpace($envMap[$pair.Key]) -or $envMap[$pair.Key] -match "localhost|127\.0\.0\.1|TU_HOST|TU_PASSWORD|CHANGE_ME") {
+  if (
+    [string]::IsNullOrWhiteSpace($envMap[$pair.Key]) -or
+    $envMap[$pair.Key] -match "localhost|127\.0\.0\.1|TU_HOST|TU_PASSWORD|CHANGE_ME" -or
+    $envMap[$pair.Key] -eq "https://subligo-web-app.vercel.app"
+  ) {
     Set-OrAppendEnvValue -FilePath $envFile -Name $pair.Key -Value $pair.Value
     $envMap[$pair.Key] = $pair.Value
   }
@@ -79,9 +108,9 @@ try {
   foreach ($name in $required) {
     $tempFile = Join-Path $tempDir "$name.txt"
     Set-Content -LiteralPath $tempFile -Value $envMap[$name] -NoNewline
-    cmd /c "type `"$tempFile`" | vercel env add $name production --force --yes --non-interactive"
+    Get-Content -LiteralPath $tempFile -Raw | & $vercelExe env add $name production --force --yes --non-interactive --scope $ProjectScope --project $ProjectName
     if ($LASTEXITCODE -ne 0) {
-      throw "[vercel] Fallo al subir $name al proyecto web."
+      throw "[vercel] Fallo al subir $name al proyecto web $ProjectName."
     }
   }
 } finally {
@@ -89,4 +118,4 @@ try {
   Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "[vercel] Variables del web sincronizadas en produccion."
+Write-Host "[vercel] Variables del web sincronizadas en produccion para $ProjectName."
