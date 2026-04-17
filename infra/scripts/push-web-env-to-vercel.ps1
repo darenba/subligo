@@ -7,6 +7,8 @@ param(
   [string]$AdminUpstreamUrl = "https://subligo-admin-app.vercel.app"
 )
 
+$ErrorActionPreference = "Stop"
+
 function Resolve-VercelExecutable {
   $cmd = Get-Command vercel.cmd -ErrorAction SilentlyContinue
   if ($cmd) { return $cmd.Source }
@@ -66,11 +68,21 @@ function Invoke-VercelWithExactStdin {
     [Parameter(Mandatory = $true)][string]$InputText
   )
 
+  function Quote-Argument {
+    param([Parameter(Mandatory = $true)][string]$Value)
+
+    if ($Value -notmatch '[\s"]') {
+      return $Value
+    }
+
+    $escaped = $Value -replace '(\\*)"', '$1$1\"'
+    $escaped = $escaped -replace '(\\+)$', '$1$1'
+    return '"' + $escaped + '"'
+  }
+
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = $Executable
-  foreach ($argument in $Arguments) {
-    [void]$startInfo.ArgumentList.Add($argument)
-  }
+  $startInfo.Arguments = (($Arguments | ForEach-Object { Quote-Argument $_ }) -join " ")
   $startInfo.UseShellExecute = $false
   $startInfo.RedirectStandardInput = $true
   $startInfo.RedirectStandardOutput = $true
