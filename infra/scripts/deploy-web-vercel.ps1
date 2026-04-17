@@ -63,24 +63,84 @@ function Wait-ForWebReady {
 }
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+$webRoot = Join-Path $repoRoot "apps\web"
+$outputDir = Join-Path $webRoot ".vercel\output"
 $vercelExe = Resolve-VercelExecutable
 
 if (-not $vercelExe) {
   throw "[vercel] No se encontro la CLI de Vercel."
 }
 
-Push-Location $repoRoot
-try {
-  $deployOutput = & $vercelExe --prod --force --yes --non-interactive --scope $ProjectScope --project $ProjectName 2>&1
-  $deployExitCode = $LASTEXITCODE
-  $deployLines = @($deployOutput | ForEach-Object { "$_" })
+if (!(Test-Path $webRoot)) {
+  throw "[vercel] No existe la carpeta del web: $webRoot"
+}
 
-  foreach ($line in $deployLines) {
+function Invoke-VercelStep {
+  param(
+    [Parameter(Mandatory = $true)][string]$Label,
+    [Parameter(Mandatory = $true)][string[]]$Arguments
+  )
+
+  Write-Host "[vercel] $Label..."
+  $output = & $vercelExe @Arguments 2>&1
+  $exitCode = $LASTEXITCODE
+  $lines = @($output | ForEach-Object { "$_" })
+  foreach ($line in $lines) {
     Write-Host $line
   }
+  if ($exitCode -ne 0) {
+    throw "[vercel] Fallo '$Label'."
+  }
+  return ,$lines
+}
+
+Push-Location $repoRoot
+try {
+  if (Test-Path $outputDir) {
+    Remove-Item -LiteralPath $outputDir -Recurse -Force -ErrorAction SilentlyContinue
+  }
+
+  Invoke-VercelStep -Label "Enlazando apps/web al proyecto $ProjectName" -Arguments @(
+    "link",
+    "--yes",
+    "--scope", $ProjectScope,
+    "--project", $ProjectName,
+    "--cwd", $webRoot
+  ) | Out-Null
+
+  Invoke-VercelStep -Label "Descargando configuracion de produccion para $ProjectName" -Arguments @(
+    "pull",
+    "--yes",
+    "--environment=production",
+    "--scope", $ProjectScope,
+    "--project", $ProjectName,
+    "--cwd", $webRoot
+  ) | Out-Null
+
+  Invoke-VercelStep -Label "Construyendo web localmente para produccion" -Arguments @(
+    "build",
+    "--prod",
+    "--scope", $ProjectScope,
+    "--project", $ProjectName,
+    "--cwd", $webRoot
+  ) | Out-Null
+
+  $deployLines = Invoke-VercelStep -Label "Publicando build precompilado en $ProjectName" -Arguments @(
+    "deploy",
+    "--prebuilt",
+    "--prod",
+    "--yes",
+    "--non-interactive",
+    "--scope", $ProjectScope,
+    "--project", $ProjectName,
+    "--cwd", $webRoot
+  )
 
   $inspectUrl = Get-FirstRegexMatch -Lines $deployLines -Pattern 'Inspect:\s+(https://\S+)'
   $productionUrl = Get-FirstRegexMatch -Lines $deployLines -Pattern 'Production:\s+(https://\S+)'
+  if (-not $productionUrl) {
+    $productionUrl = Get-FirstRegexMatch -Lines $deployLines -Pattern '^(https://\S+)$'
+  }
   $aliasUrl = "https://$ProjectName.vercel.app"
   $urlsToCheck = @($PrimaryUrl, $aliasUrl, $productionUrl) | Where-Object { $_ } | Select-Object -Unique
 
@@ -95,10 +155,6 @@ try {
 
   if (Wait-ForWebReady -Urls $urlsToCheck -Attempts $Attempts -DelaySeconds $DelaySeconds) {
     return
-  }
-
-  if ($deployExitCode -ne 0) {
-    throw "[vercel] La CLI reporto error y el web no respondio en ninguno de estos endpoints: $($urlsToCheck -join ', ')"
   }
 
   throw "[vercel] El deploy termino sin error, pero el web no respondio en ninguno de estos endpoints: $($urlsToCheck -join ', ')"

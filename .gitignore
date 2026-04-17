@@ -16,6 +16,7 @@ logs
 tmp_mockup_previews
 docker-data
 apps/*/.next
+apps/*/.vercel
 apps/*/dist
 packages/*/dist
 packages/database/generated
