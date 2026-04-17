@@ -60,12 +60,17 @@ function Set-OrAppendEnvValue {
 }
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+$webRoot = Join-Path $repoRoot "apps\web"
 $envFile = Join-Path $repoRoot ".env"
 $envMap = Get-EnvMapFromFile -FilePath $envFile
 $vercelExe = Resolve-VercelExecutable
 
 if (-not $vercelExe) {
   throw "[vercel] No se encontro la CLI de Vercel."
+}
+
+if (!(Test-Path $webRoot)) {
+  throw "[vercel] No existe la carpeta del web: $webRoot"
 }
 
 $defaults = @{
@@ -105,10 +110,15 @@ New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
 
 try {
   Push-Location $repoRoot
+  & $vercelExe link --yes --scope $ProjectScope --project $ProjectName --cwd $webRoot
+  if ($LASTEXITCODE -ne 0) {
+    throw "[vercel] Fallo al enlazar apps/web con el proyecto $ProjectName."
+  }
+
   foreach ($name in $required) {
     $tempFile = Join-Path $tempDir "$name.txt"
     Set-Content -LiteralPath $tempFile -Value $envMap[$name] -NoNewline
-    Get-Content -LiteralPath $tempFile -Raw | & $vercelExe env add $name production --force --yes --non-interactive --scope $ProjectScope --project $ProjectName
+    Get-Content -LiteralPath $tempFile -Raw | & $vercelExe env add $name production --force --yes --non-interactive --scope $ProjectScope --cwd $webRoot
     if ($LASTEXITCODE -ne 0) {
       throw "[vercel] Fallo al subir $name al proyecto web $ProjectName."
     }
