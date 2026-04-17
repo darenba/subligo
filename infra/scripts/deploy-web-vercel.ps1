@@ -113,7 +113,6 @@ try {
     "--yes",
     "--environment=production",
     "--scope", $ProjectScope,
-    "--project", $ProjectName,
     "--cwd", $webRoot
   ) | Out-Null
 
@@ -121,7 +120,6 @@ try {
     "build",
     "--prod",
     "--scope", $ProjectScope,
-    "--project", $ProjectName,
     "--cwd", $webRoot
   ) | Out-Null
 
@@ -132,7 +130,6 @@ try {
     "--yes",
     "--non-interactive",
     "--scope", $ProjectScope,
-    "--project", $ProjectName,
     "--cwd", $webRoot
   )
 
