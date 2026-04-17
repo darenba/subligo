@@ -78,16 +78,49 @@ function Invoke-VercelStep {
     [Parameter(Mandatory = $true)][string[]]$Arguments
   )
 
+  function Quote-Argument {
+    param([Parameter(Mandatory = $true)][string]$Value)
+
+    if ($Value -notmatch '[\s"]') {
+      return $Value
+    }
+
+    $escaped = $Value -replace '(\\*)"', '$1$1\"'
+    $escaped = $escaped -replace '(\\+)$', '$1$1'
+    return '"' + $escaped + '"'
+  }
+
   Write-Host "[vercel] $Label..."
-  $output = & $Executable @Arguments 2>&1
-  $exitCode = $LASTEXITCODE
-  $lines = @($output | ForEach-Object { "$_" })
+
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = $Executable
+  $startInfo.Arguments = (($Arguments | ForEach-Object { Quote-Argument $_ }) -join " ")
+  $startInfo.UseShellExecute = $false
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+  [void]$process.Start()
+
+  $stdout = $process.StandardOutput.ReadToEnd()
+  $stderr = $process.StandardError.ReadToEnd()
+  $process.WaitForExit()
+
+  $lines = @()
+  if (-not [string]::IsNullOrWhiteSpace($stdout)) {
+    $lines += @($stdout -split "(`r`n|`n|`r)")
+  }
+  if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+    $lines += @($stderr -split "(`r`n|`n|`r)")
+  }
+  $lines = @($lines | Where-Object { $_ -ne "" })
 
   foreach ($line in $lines) {
     Write-Host $line
   }
 
-  if ($exitCode -ne 0) {
+  if ($process.ExitCode -ne 0) {
     throw "[vercel] Fallo '$Label'."
   }
 
