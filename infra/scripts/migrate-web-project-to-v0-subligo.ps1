@@ -285,7 +285,7 @@ function Show-AuditDifferences {
   $differences = New-Object System.Collections.ArrayList
   foreach ($field in @("rootDirectory", "framework", "installCommand", "buildCommand", "outputDirectory", "nodeVersion", "sourceFilesOutsideRootDirectory", "enableAffectedProjectsDeployments")) {
     if ("$($SourceProject.$field)" -ne "$($TargetProject.$field)") {
-      [void]$differences.Add("  - $field: fuente='$($SourceProject.$field)' | destino='$($TargetProject.$field)'")
+      [void]$differences.Add("  - ${field}: fuente='$($SourceProject.$field)' | destino='$($TargetProject.$field)'")
     }
   }
 
