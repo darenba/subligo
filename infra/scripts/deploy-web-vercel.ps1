@@ -129,6 +129,7 @@ function Invoke-VercelStep {
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $webRoot = Join-Path $repoRoot "apps\web"
+$prebuiltOutput = Join-Path $repoRoot ".vercel\output"
 $vercelExe = Resolve-VercelExecutable
 
 if (-not $vercelExe) {
@@ -141,21 +142,43 @@ if (!(Test-Path (Join-Path $webRoot "vercel.json"))) {
 
 Push-Location $repoRoot
 try {
-  Invoke-VercelStep -Executable $vercelExe -Label "Enlazando apps/web al proyecto $ProjectName" -Arguments @(
+  if (Test-Path $prebuiltOutput) {
+    Remove-Item -LiteralPath $prebuiltOutput -Recurse -Force
+  }
+
+  Invoke-VercelStep -Executable $vercelExe -Label "Enlazando la raiz del repo al proyecto $ProjectName" -Arguments @(
     "link",
     "--yes",
     "--scope", $ProjectScope,
     "--project", $ProjectName,
-    "--cwd", $webRoot
+    "--cwd", $repoRoot
   ) | Out-Null
 
-  $deployLines = Invoke-VercelStep -Executable $vercelExe -Label "Desplegando el web en $ProjectName desde apps/web" -Arguments @(
+  Invoke-VercelStep -Executable $vercelExe -Label "Descargando configuracion de produccion de $ProjectName" -Arguments @(
+    "pull",
+    "--yes",
+    "--environment", "production",
+    "--scope", $ProjectScope,
+    "--cwd", $repoRoot
+  ) | Out-Null
+
+  Invoke-VercelStep -Executable $vercelExe -Label "Construyendo localmente el web para $ProjectName" -Arguments @(
+    "build",
+    "--prod",
+    "--yes",
+    "--scope", $ProjectScope,
+    "--cwd", $repoRoot
+  ) | Out-Null
+
+  $deployLines = Invoke-VercelStep -Executable $vercelExe -Label "Subiendo build precompilado a $ProjectName" -Arguments @(
+    "deploy",
+    "--prebuilt",
     "--prod",
     "--force",
     "--yes",
     "--non-interactive",
     "--scope", $ProjectScope,
-    "--cwd", $webRoot
+    "--cwd", $repoRoot
   )
 
   $inspectUrl = Get-FirstRegexMatch -Lines $deployLines -Pattern 'Inspect:\s+(https://\S+)'
