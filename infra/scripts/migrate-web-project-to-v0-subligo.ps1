@@ -325,17 +325,42 @@ function Sync-TargetProjectSettings {
     [Parameter(Mandatory = $true)]$LocalWebConfig
   )
 
-  $payload = @{
-    framework = if ($SourceProject.framework) { $SourceProject.framework } else { $LocalWebConfig.framework }
-    installCommand = if ($LocalWebConfig.installCommand) { $LocalWebConfig.installCommand } else { $SourceProject.installCommand }
-    buildCommand = if ($LocalWebConfig.buildCommand) { $LocalWebConfig.buildCommand } else { $SourceProject.buildCommand }
-    rootDirectory = $SourceProject.rootDirectory
-    outputDirectory = $SourceProject.outputDirectory
-    nodeVersion = $SourceProject.nodeVersion
-    devCommand = $SourceProject.devCommand
-    commandForIgnoringBuildStep = $SourceProject.commandForIgnoringBuildStep
-    sourceFilesOutsideRootDirectory = $SourceProject.sourceFilesOutsideRootDirectory
-    enableAffectedProjectsDeployments = $SourceProject.enableAffectedProjectsDeployments
+  $payload = @{}
+
+  $framework = if (-not [string]::IsNullOrWhiteSpace($SourceProject.framework)) { $SourceProject.framework } else { $LocalWebConfig.framework }
+  $installCommand = if (-not [string]::IsNullOrWhiteSpace($LocalWebConfig.installCommand)) { $LocalWebConfig.installCommand } else { $SourceProject.installCommand }
+  $buildCommand = if (-not [string]::IsNullOrWhiteSpace($LocalWebConfig.buildCommand)) { $LocalWebConfig.buildCommand } else { $SourceProject.buildCommand }
+  $rootDirectory = if (-not [string]::IsNullOrWhiteSpace($SourceProject.rootDirectory)) { $SourceProject.rootDirectory } else { "apps/web" }
+
+  if (-not [string]::IsNullOrWhiteSpace($framework)) {
+    $payload.framework = $framework
+  }
+  if (-not [string]::IsNullOrWhiteSpace($installCommand)) {
+    $payload.installCommand = $installCommand
+  }
+  if (-not [string]::IsNullOrWhiteSpace($buildCommand)) {
+    $payload.buildCommand = $buildCommand
+  }
+  if (-not [string]::IsNullOrWhiteSpace($rootDirectory)) {
+    $payload.rootDirectory = $rootDirectory
+  }
+  if (-not [string]::IsNullOrWhiteSpace($SourceProject.outputDirectory)) {
+    $payload.outputDirectory = $SourceProject.outputDirectory
+  }
+  if (-not [string]::IsNullOrWhiteSpace($SourceProject.nodeVersion)) {
+    $payload.nodeVersion = $SourceProject.nodeVersion
+  }
+  if (-not [string]::IsNullOrWhiteSpace($SourceProject.devCommand)) {
+    $payload.devCommand = $SourceProject.devCommand
+  }
+  if (-not [string]::IsNullOrWhiteSpace($SourceProject.commandForIgnoringBuildStep)) {
+    $payload.commandForIgnoringBuildStep = $SourceProject.commandForIgnoringBuildStep
+  }
+  if ($SourceProject.sourceFilesOutsideRootDirectory -is [bool]) {
+    $payload.sourceFilesOutsideRootDirectory = $SourceProject.sourceFilesOutsideRootDirectory
+  }
+  if ($SourceProject.enableAffectedProjectsDeployments -is [bool]) {
+    $payload.enableAffectedProjectsDeployments = $SourceProject.enableAffectedProjectsDeployments
   }
 
   Write-Host "[sync] Alineando settings de Vercel en $TargetProjectRef..."
